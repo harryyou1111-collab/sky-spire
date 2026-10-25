@@ -42,9 +42,9 @@ G.Boss = (function () {
         { name: 'hip',      parent: null,      at: [0, 0],                          rest: 0,       len: 0 },
         { name: 'torso',    parent: 'hip',     at: [0, 0],                          rest: Math.PI, len: b.torso },
         { name: 'head',     parent: 'torso',   at: [0, b.torso - 6],                rest: 0,       len: b.head },
-        { name: 'armL_up',  parent: 'torso',   at: [b.shoulderX, b.torso - 22],     rest: Math.PI, len: b.armUp },
+        { name: 'armL_up',  parent: 'torso',   at: [b.shoulderX, b.torso - (b.shoulderDrop || 22)], rest: Math.PI, len: b.armUp },
         { name: 'armL_low', parent: 'armL_up', at: [0, b.armUp],                    rest: 0,       len: b.armLow },
-        { name: 'armR_up',  parent: 'torso',   at: [-b.shoulderX, b.torso - 22],    rest: Math.PI, len: b.armUp },
+        { name: 'armR_up',  parent: 'torso',   at: [-b.shoulderX, b.torso - (b.shoulderDrop || 22)], rest: Math.PI, len: b.armUp },
         { name: 'armR_low', parent: 'armR_up', at: [0, b.armUp],                    rest: 0,       len: b.armLow },
       ],
     };
