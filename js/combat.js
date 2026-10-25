@@ -6,12 +6,25 @@
 G.Combat = (function () {
   const S = () => G.Stage;
 
-  // 공격 판정을 x 범위 + 높이 범위로 (바라보는 방향에 따라 좌우 반전)
-  // config의 hitbox는 화면 기준([앞, 위아래(-가 위), 가로, 세로])이라 높이로 바꿈
+  // 공격 판정 범위
+  //   앞쪽 : 공격 방향(dir)으로 f0 ~ f1 거리
+  //   옆   : 공격 방향과 직각으로 ±reach
+  //   높이 : h0 ~ h1
+  // 내려찍기는 방향 없이 발밑 원형 범위
   function attackRange(p) {
-    const [fx, y, w, hh] = p.atk.def.hitbox;
-    const x0 = p.facing > 0 ? p.x + fx : p.x - fx - w;
-    return { x0, x1: x0 + w, h0: p.h - y - hh, h1: p.h - y };
+    const a = p.atk, [fx, y, w, hh] = a.def.hitbox;
+    return { dir: a.dir, f0: fx, f1: fx + w, side: G.CFG.attack.reach, h0: p.h - y - hh, h1: p.h - y,
+             down: a.kind === 'down', radius: w / 2 + 6 };
+  }
+
+  // 대상 t가 범위 r 안에 있는가 (바닥 평면 + 높이)
+  function inRange(p, r, t) {
+    if (r.h1 < t.h || r.h0 > t.h + t.height) return false;
+    const tx = t.x - p.x, tz = t.z - p.z, rad = t.w / 2;
+    if (r.down) return Math.hypot(tx, tz) < r.radius + rad;
+    const along = tx * r.dir.x + tz * r.dir.z;          // 앞쪽으로 얼마나
+    const side = -tx * r.dir.z + tz * r.dir.x;          // 옆으로 얼마나
+    return along > r.f0 - rad && along < r.f1 + rad && Math.abs(side) < r.side + rad * 0.5;
   }
 
   // ---------- 훈련용 허수아비 ----------
@@ -23,26 +36,24 @@ G.Combat = (function () {
 
   // 플레이어 공격이 대상에 맞았는지 검사. 맞으면 true
   function playerAttack(p) {
-    const a = p.atk, r = attackRange(p), reach = G.CFG.attack.reach;
+    const a = p.atk, r = attackRange(p);
     let hitAny = false;
     for (const t of targets) {
       if (a.hit.has(t)) continue;                       // 한 번 휘두를 때 같은 대상은 한 번만
-      if (Math.abs(t.z - p.z) > reach) continue;        // 깊이가 다르면 빗나감
-      const tx0 = t.x - t.w / 2, tx1 = t.x + t.w / 2;
-      if (r.x1 < tx0 || r.x0 > tx1) continue;
-      if (r.h1 < t.h || r.h0 > t.h + t.height) continue;
+      if (!inRange(p, r, t)) continue;
       a.hit.add(t);
       hitAny = true;
 
       t.total += a.def.dmg;
       t.flash = 0.1;
-      t.wobbleV += p.facing * (a.def.dmg >= 15 ? 9 : 5);
+      const push = Math.abs(a.dir.x) > 0.3 ? Math.sign(a.dir.x) : (Math.random() < 0.5 ? -1 : 1);
+      t.wobbleV += push * (a.def.dmg >= 15 ? 9 : 5);
 
-      // 효과는 겹친 곳 가운데 (화면 좌표)
-      const cx = (Math.max(r.x0, tx0) + Math.min(r.x1, tx1)) / 2;
+      // 효과는 대상 몸에서 공격 쪽 (화면 좌표)
       const ch = (Math.max(r.h0, t.h) + Math.min(r.h1, t.h + t.height)) / 2;
+      const cx = t.x - a.dir.x * t.w * 0.3;
       G.FX.hitstop(a.def.hitstop);
-      G.FX.spark(cx, S().screenY(t.z, ch), p.facing, a.def.dmg >= 15 ? 1 : 0.5);
+      G.FX.spark(cx, S().screenY(t.z, ch), push, a.def.dmg >= 15 ? 1 : 0.5);
       G.FX.text(t.x, S().screenY(t.z, t.h + t.height) - 6, String(a.def.dmg));
     }
     return hitAny;
@@ -92,9 +103,15 @@ G.Combat = (function () {
     ctx.strokeStyle = p.iframe > 0 ? '#5ab4ff' : '#7fffb0';
     ctx.strokeRect(p.x - c.halfWidth, py - c.height, c.halfWidth * 2, c.height);
     if (p.atk && p.atk.phase === 'active') {
-      const r = attackRange(p), fy = S().floorY(p.z);
+      // 공격 범위를 바닥 평면에 사각형으로 표시
+      const r = attackRange(p), d = r.dir, s = r.side;
+      const pt = (f, o) => [p.x + d.x * f - d.z * o, S().floorY(p.z + d.z * f + d.x * o) - p.h];
       ctx.fillStyle = 'rgba(255, 70, 70, .35)';
-      ctx.fillRect(r.x0, fy - r.h1, r.x1 - r.x0, r.h1 - r.h0);
+      ctx.beginPath();
+      [[r.f0, -s], [r.f1, -s], [r.f1, s], [r.f0, s]].forEach(([f, o], i) => {
+        const [x, y] = pt(f, o); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      });
+      ctx.closePath(); ctx.fill();
     }
     ctx.restore();
   }

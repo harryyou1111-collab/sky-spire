@@ -257,10 +257,31 @@ G.Player = (function () {
       p.combo = n;
       kind = 'side' + n;
     }
-    if (ax !== 0) p.facing = Math.sign(ax);
-    p.atk = { kind, def: A[kind], t: 0, phase: 'startup', hit: new Set(), queued: false, lunged: false, id: ++p.atkCount };
+    const dir = aimDir(p, ax, ay);
+    if (Math.abs(dir.x) > 0.2) p.facing = Math.sign(dir.x);   // 그림은 옆모습이라 좌우만 바뀜
+    p.atk = { kind, def: A[kind], t: 0, phase: 'startup', hit: new Set(), queued: false, lunged: false, id: ++p.atkCount, dir };
+    if (kind !== 'down') G.FX.slash(p, dir, A[kind]);
     p.atkBuf = 0;
     p.chainT = 0;
+  }
+
+  // 공격 방향 정하기 (바닥 평면의 단위 벡터 {x, z})
+  //  1) 조이스틱을 밀고 있으면 그 방향, 아니면 바라보는 방향
+  //  2) 그 방향 근처(aimAngle 이내, aimRange 거리 안)에 적이 있으면 가장 가까운 적 쪽으로 살짝 틀기
+  function aimDir(p, ax, ay) {
+    const A = G.CFG.attack;
+    let dx = p.facing, dz = 0;
+    const len = Math.hypot(ax, ay);
+    if (len > 0.3) { dx = ax / len; dz = ay / len; }
+    let best = null, bestD = A.aimRange;
+    for (const t of G.Combat.targets) {
+      const tx = t.x - p.x, tz = t.z - p.z, d = Math.hypot(tx, tz);
+      if (d < 1 || d > bestD) continue;
+      const cos = (tx * dx + tz * dz) / d;
+      if (cos < Math.cos(A.aimAngle * Math.PI / 180)) continue;
+      best = { x: tx / d, z: tz / d }; bestD = d;
+    }
+    return best || { x: dx, z: dz };
   }
 
   function updateAttack(p, dt, ax, ay) {
@@ -272,9 +293,15 @@ G.Player = (function () {
 
     // 움직임: 땅에서는 제자리에 서서 휘두르고, 타격 순간 앞으로 내딛음
     if (p.onGround) {
-      if (a.phase === 'active' && !a.lunged && d.lunge > 0) { p.vx = p.facing * d.lunge; a.lunged = true; }
-      else p.vx = approach(p.vx, 0, c.decel * 0.5 * dt);
-      p.vz = approach(p.vz, 0, c.decel * dt);
+      // 타격 순간 공격 방향으로 내딛음 (안쪽/바깥쪽 공격이면 그쪽으로)
+      if (a.phase === 'active' && !a.lunged && d.lunge > 0) {
+        p.vx = a.dir.x * d.lunge;
+        p.vz = a.dir.z * d.lunge * c.depthSpeed;
+        a.lunged = true;
+      } else {
+        p.vx = approach(p.vx, 0, c.decel * 0.5 * dt);
+        p.vz = approach(p.vz, 0, c.decel * 0.5 * dt);
+      }
     } else {
       steer(p, dt, ax, ay, 0.6);
     }

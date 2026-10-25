@@ -5,9 +5,22 @@
 //   trail   : 검 궤적 잔상
 //   ghosts  : 대시 잔상
 //   texts   : 피해 숫자
+//   slashes : 공격 방향을 보여주는 둥근 칼날 자국 (바닥 평면 기준)
 // =====================================================================
 G.FX = (function () {
-  const fx = { hitstop: 0, sparks: [], trail: [], ghosts: [], texts: [] };
+  const fx = { hitstop: 0, sparks: [], trail: [], ghosts: [], texts: [], slashes: [] };
+
+  // 칼날 자국: 공격 판정이 시작되는 순간(startup 뒤)에 나타나서 빠르게 휩쓸고 사라짐
+  // 플레이어 위치를 따라다님 (내딛는 동안에도 몸에 붙어 있게)
+  function slash(p, dir, def) {
+    const [fx0, y, w, hh] = def.hitbox;
+    fx.slashes.push({
+      p, ang: Math.atan2(dir.z, dir.x),
+      r: fx0 + w * 0.85, chest: -(y + hh / 2),
+      delay: def.startup, life: def.active + 0.1, age: 0,
+      heavy: def.dmg >= 15,
+    });
+  }
 
   function hitstop(t) { fx.hitstop = Math.max(fx.hitstop, t); }
 
@@ -41,6 +54,38 @@ G.FX = (function () {
     fx.ghosts = fx.ghosts.filter(g => g.age < g.life);
     fx.texts.forEach(t => { t.age += dt; });
     fx.texts = fx.texts.filter(t => t.age < t.life);
+    fx.slashes.forEach(s => { s.age += dt; });
+    fx.slashes = fx.slashes.filter(s => s.age < s.delay + s.life);
+  }
+
+  function drawSlashes(ctx) {
+    const SQUASH = 0.6;   // 깊이 방향은 납작하게 (바닥 평면처럼 보이게)
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of fx.slashes) {
+      if (s.age < s.delay) continue;
+      const k = (s.age - s.delay) / s.life;
+      const spread = (s.heavy ? 80 : 60) * Math.PI / 180;
+      const a0 = s.ang - spread, sweep = spread * 2 * Math.min(1, k * 2.5);
+      const cx = s.p.x, cy = G.Stage.screenY(s.p.z, s.p.h + s.chest);
+      const R = s.r, r = R * (s.heavy ? 0.5 : 0.62);
+      const P = (rad, a) => [cx + Math.cos(a) * rad, cy + Math.sin(a) * rad * SQUASH];
+      const N = 14;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const [x, y] = P(R, a0 + sweep * i / N); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      for (let i = N; i >= 0; i--) { const t = i / N; const [x, y] = P(r + (R - r) * (1 - Math.sin(t * Math.PI)) * 0.6, a0 + sweep * t); ctx.lineTo(x, y); }
+      ctx.closePath();
+      const col = s.heavy ? '255, 215, 140' : '215, 228, 255';
+      ctx.fillStyle = `rgba(${col}, ${0.7 * (1 - k)})`;
+      ctx.fill();
+      // 바깥쪽 날카로운 테두리
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * (1 - k)})`;
+      ctx.lineWidth = s.heavy ? 2.5 : 1.8;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const [x, y] = P(R, a0 + sweep * i / N); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // 캐릭터 뒤에 그릴 것
@@ -50,6 +95,7 @@ G.FX = (function () {
 
   // 캐릭터 앞에 그릴 것
   function drawFront(ctx) {
+    drawSlashes(ctx);
     // 검 궤적: 오래된 점일수록 투명한 띠
     const tr = fx.trail;
     if (tr.length > 1) {
@@ -99,5 +145,5 @@ G.FX = (function () {
     ctx.restore();
   }
 
-  return { state: fx, hitstop, spark, text, trailPoint, ghost, update, drawBack, drawFront };
+  return { state: fx, hitstop, spark, text, trailPoint, ghost, slash, update, drawBack, drawFront };
 })();
