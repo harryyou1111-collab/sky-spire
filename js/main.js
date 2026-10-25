@@ -11,9 +11,9 @@
   let camX = 0;
   let camY = 0;      // 높은 곳에 올라가면 화면이 위로 따라감 (0 또는 음수)
 
-  const player = G.Player.create(160, 60);
-  G.Combat.addDummy(290, 40);   // 훈련용 허수아비 (1-3단계에서 몬스터로 교체)
-  G.Combat.addDummy(905, 70);
+  const player = G.Player.create(160, 80);
+  G.Combat.addDummy(270, 50);   // 훈련용 허수아비 (1-3단계에서 몬스터로 교체)
+  G.Combat.addDummy(905, 95);
 
   // ---------- 화면 크기 맞추기 ----------
   function resize() {
@@ -32,7 +32,7 @@
     if (viewW >= CFG.ARENA_W) target = (CFG.ARENA_W - viewW) / 2;
     else target = Math.max(0, Math.min(CFG.ARENA_W - viewW, target));
     camX = snap ? target : camX + (target - camX) * Math.min(1, CFG.camera.follow * dt);
-    const targetY = Math.min(0, player.sy - 150);   // 발이 화면 위쪽(150)보다 올라가면 따라감
+    const targetY = Math.min(0, player.sy - 135);   // 머리가 화면 밖으로 나가려 하면 따라감
     camY = snap ? targetY : camY + (targetY - camY) * Math.min(1, CFG.camera.follow * 0.6 * dt);
   }
 
@@ -148,7 +148,7 @@
     ctx.setTransform(scale, 0, 0, scale, -camX * scale, -camY * scale);
     G.Stage.drawFloor(ctx);
     // 안쪽(z 작음)부터 그려서 앞에 있는 것이 위에 보이게
-    const list = [...G.Stage.drawables(), ...G.Combat.drawables(), G.Player.drawable(player)];
+    const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), G.Player.drawable(player)];
     list.sort((a, b) => a.key - b.key);
     for (const d of list) d.draw(ctx);
     G.FX.drawFront(ctx);

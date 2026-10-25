@@ -9,7 +9,7 @@ G.CFG = {
   VIEW_H: 360,        // 화면 세로 기준 크기 (기기와 상관없이 항상 360단위가 보임)
   ARENA_W: 1000,      // 전투 공간 가로 길이
   GROUND_Y: 262,      // 가장 가까운 바닥선의 화면 높이. 아래 공간은 터치 버튼 자리
-  DEPTH: 84,          // 화면 안쪽/바깥쪽으로 움직일 수 있는 깊이
+  DEPTH: 120,         // 화면 안쪽/바깥쪽으로 움직일 수 있는 깊이
   GRAVITY: 2300,      // 중력
   FALL_GRAVITY_MULT: 1.3, // 떨어질 때 중력 배수 (클수록 점프가 묵직하고 빠르게 떨어짐)
   MAX_FALL: 950,      // 최대 낙하 속도
@@ -51,7 +51,7 @@ G.CFG = {
   attack: {
     buffer: 0.18,     // 공격 중에 미리 누른 다음 공격을 기억하는 시간
     chain: 0.22,      // 공격이 끝난 뒤 이 시간 안에 누르면 다음 콤보로 이어짐
-    reach: 16,        // 깊이 방향 공격 범위
+    reach: 30,        // 깊이 방향 공격 범위 (클수록 대충 가까이만 가도 맞음)
     side1: { startup: 0.07, active: 0.08, recovery: 0.16, dmg: 8,  lunge: 140, hitbox: [16, -100, 66, 74],  hitstop: 0.045 },
     side2: { startup: 0.07, active: 0.08, recovery: 0.16, dmg: 8,  lunge: 140, hitbox: [12, -118, 68, 92],  hitstop: 0.045 },
     side3: { startup: 0.14, active: 0.10, recovery: 0.30, dmg: 16, lunge: 230, hitbox: [6, -128, 86, 128],  hitstop: 0.09 },

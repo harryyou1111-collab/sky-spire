@@ -387,7 +387,7 @@ G.Player = (function () {
 
   function draw(ctx, p) {
     const c = C();
-    const floor = G.Stage.support(p.x, p.z, c.halfWidth, c.halfDepth, p.h);
+    const floor = G.Stage.support(p.x, p.z, p.h);
     const air = Math.min(1, (p.h - floor) / 150);
     G.Render.shadow(ctx, p.x, G.Stage.screenY(p.z, floor), 20 * (1 - air * 0.5), 0.45 * (1 - air * 0.6));
     G.FX.drawBack(ctx, drawGhost);
