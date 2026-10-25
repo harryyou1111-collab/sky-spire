@@ -2,11 +2,64 @@
 // render.js — 리그를 화면에 그리기
 //
 // ★ 그래픽 교체 지점 ★
-// 지금은 "스킨"의 각 파츠가 도형(shape)입니다.
-// 2단계에서 같은 스킨 항목을 이미지 정보로 바꾸면, 전투 코드를 건드리지 않고
-// 그림만 교체됩니다. (이미지 그리기 기능은 2단계에서 추가 예정, 지금은 없음)
+// 스킨의 각 파츠는 도형(shape)으로 그려집니다.
+// 파츠에 img(이미지 파일 경로)가 있고 그 파일이 실제로 있으면 이미지로 그리고,
+// 파일이 없거나 불러오기에 실패하면 자동으로 도형으로 그립니다.
+//   img     : 'assets/bosses/pan/torso.png'
+//   anchor  : 'top'    = 이미지 맨 위 가운데가 관절 (늘어진 팔·다리)
+//             'bottom' = 이미지 맨 아래 가운데가 관절 (위로 선 몸통·머리)
+//   lenMul  : 이미지 세로 길이 = 뼈 길이 × lenMul (손이 붙은 아래팔은 1보다 크게)
+//   mirror  : true면 좌우 반전 (오른팔 이미지를 왼팔에 재사용할 때)
+//   offset  : [x, y] 미세 조정 (게임 단위)
 // =====================================================================
 G.Render = (function () {
+  // ---------- 이미지 불러오기 (한 번만 불러서 재사용) ----------
+  const images = {};
+  const missing = new Set();
+  function getImg(src) {
+    let rec = images[src];
+    if (!rec) {
+      const im = new Image();
+      rec = images[src] = { im, ok: false };
+      im.onload = () => { rec.ok = im.naturalWidth > 0; };
+      im.onerror = () => { missing.add(src); console.warn('이미지 없음 (도형으로 대신 그림):', src); };
+      im.src = src;
+    }
+    return rec.ok ? rec.im : null;
+  }
+
+  function drawImagePart(ctx, len, part, im) {
+    const k = (len * (part.lenMul || 1)) / im.naturalHeight;
+    const w = im.naturalWidth * k, h = im.naturalHeight * k;
+    const [ox, oy] = part.offset || [0, 0];
+    ctx.save();
+    if (part.anchor === 'bottom') {
+      ctx.rotate(Math.PI);                 // 위로 선 뼈: 이미지를 바로 세움
+      if (part.mirror) ctx.scale(-1, 1);
+      ctx.drawImage(im, -w / 2 + ox, -h + oy, w, h);
+    } else {
+      if (part.mirror) ctx.scale(-1, 1);
+      ctx.drawImage(im, -w / 2 + ox, oy, w, h);
+    }
+    ctx.restore();
+  }
+
+  function drawPart(ctx, len, part) {
+    const im = part.img && getImg(part.img);
+    if (im) drawImagePart(ctx, len, part, im);
+    else SHAPES[part.shape](ctx, len, part);
+  }
+
+  // 배경 이미지: 화면을 꽉 채우도록 확대, 카메라보다 천천히 움직임
+  function background(ctx, src, viewW, viewH, camX, arenaW) {
+    const im = src && getImg(src);
+    if (!im) return false;
+    const k = Math.max(viewW / im.naturalWidth, viewH / im.naturalHeight) * 1.08;
+    const w = im.naturalWidth * k, h = im.naturalHeight * k;
+    const cx = arenaW / 2 - camX * 0.85;
+    ctx.drawImage(im, cx - w / 2, viewH - h, w, h);
+    return true;
+  }
 
   // 뼈 하나를 그 뼈의 좌표계로 옮겨서 draw(ctx, len)을 실행
   function inBone(ctx, j, draw) {
@@ -286,7 +339,7 @@ G.Render = (function () {
       const part = skin[name];
       const j = joints[name];
       if (!part || !j) continue;
-      inBone(ctx, j, len => SHAPES[part.shape](ctx, len, part));
+      inBone(ctx, j, len => drawPart(ctx, len, part));
     }
     ctx.restore();
   }
@@ -314,5 +367,5 @@ G.Render = (function () {
     ctx.restore();
   }
 
-  return { drawRig, shadow, drawJoints };
+  return { drawRig, shadow, drawJoints, background, getImg, missing };
 })();

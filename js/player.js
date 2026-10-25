@@ -99,6 +99,15 @@ G.Player = (function () {
                    legF_up: -60, legF_low: 90, legB_up: -20, legB_low: 100 } },
     ] };
   }
+  // 포션 마시기: 앞팔을 입으로
+  CLIPS.drink = { dur: 0.7, loop: false, keys: [
+    { t: 0,    p: { torso: 4, head: -4, armF_up: -60, armF_low: -110, weapon: 60, armB_up: 20, armB_low: -30,
+                    legF_up: -16, legF_low: 22, legB_up: 12, legB_low: 16 } },
+    { t: 0.25, p: { torso: -6, head: 18, armF_up: -95, armF_low: -120, weapon: 60, armB_up: 25, armB_low: -30,
+                    legF_up: -16, legF_low: 22, legB_up: 12, legB_low: 16 } },
+    { t: 0.7,  p: { torso: -6, head: 18, armF_up: -95, armF_low: -120, weapon: 60, armB_up: 25, armB_low: -30,
+                    legF_up: -16, legF_low: 22, legB_up: 12, legB_low: 16 } },
+  ] };
   // 맞았을 때 / 쓰러졌을 때
   CLIPS.hurt = { dur: 0.1, loop: false, keys: [
     { t: 0, p: { torso: -22, head: 14, armF_up: 30, armF_low: -40, weapon: 70, armB_up: -60, armB_low: -40,
@@ -144,6 +153,7 @@ G.Player = (function () {
       // 대시
       dash: null, dashBuf: 0, dashCd: 0, airDashUsed: false, iframe: 0, ghostT: 0,
       hp: c.maxHp, hurt: 0, dead: false,
+      potions: G.CFG.potion.count, drink: 0,
       state: 'idle', jumpAnim: 'jump',
       anim: new G.Rig.Animator(CLIPS),
       joints: null,
@@ -175,6 +185,25 @@ G.Player = (function () {
     if (p.dead || p.hurt > 0) {
       const f = p.onGround ? c.decel * 0.6 : c.airDecel * 0.3;
       p.vx = approach(p.vx, 0, f * dt); p.vz = approach(p.vz, 0, f * dt);
+      p.vh = Math.max(p.vh - G.CFG.GRAVITY * dt, -G.CFG.MAX_FALL);
+      p.onGround = G.Stage.move(p, dt);
+      return;
+    }
+
+    // 포션: 땅에 서 있고 다른 행동 중이 아닐 때 시작. 시작하는 순간 1개 소모
+    if (I.pressed.heal && p.potions > 0 && p.drink <= 0 && p.onGround && !p.atk && !p.dash) {
+      p.potions--; p.drink = G.CFG.potion.drinkTime;
+      G.Game.updateHUD();
+    }
+    if (p.drink > 0) {
+      p.drink -= dt;
+      steer(p, dt, ax * G.CFG.potion.moveMul, ay * G.CFG.potion.moveMul, 1);
+      if (p.drink <= 0) {
+        p.hp = Math.min(c.maxHp, p.hp + G.CFG.potion.heal);
+        G.FX.text(p.x, G.Stage.screenY(p.z, p.h + 130), '+' + G.CFG.potion.heal, '#9df0a8');
+        G.FX.heal(p);
+        G.Game.updateHUD();
+      }
       p.vh = Math.max(p.vh - G.CFG.GRAVITY * dt, -G.CFG.MAX_FALL);
       p.onGround = G.Stage.move(p, dt);
       return;
@@ -389,6 +418,9 @@ G.Player = (function () {
     if (p.dead) {
       p.state = 'dead';
       p.anim.play('dead', false, 0.05);
+    } else if (p.drink > 0) {
+      p.state = 'drink';
+      p.anim.play('drink', false, 0.05);
     } else if (p.hurt > 0) {
       p.state = 'hurt';
       p.anim.play('hurt', false, 0.04);

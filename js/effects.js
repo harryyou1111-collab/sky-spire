@@ -43,6 +43,14 @@ G.FX = (function () {
     fx.sparks.push({ x, y, flash: true, size: 16 + power * 14, life: 0.08, age: 0 });
   }
 
+  // 회복: 초록 입자가 몸에서 위로 올라감
+  function heal(p) {
+    for (let i = 0; i < 18; i++) {
+      fx.sparks.push({ x: p.x + (Math.random() - 0.5) * 30, y: G.Stage.screenY(p.z, p.h + Math.random() * 100),
+                       vx: (Math.random() - 0.5) * 40, vy: -120 - Math.random() * 120, life: 0.6, age: 0, green: true, float: true });
+    }
+  }
+
   function text(x, y, str, color) { fx.texts.push({ x, y, str, color, age: 0, life: 0.6 }); }
 
   // 검 궤적: 칼끝(tip)과 칼날 중간(base)의 월드 좌표를 매 프레임 기록
@@ -53,7 +61,8 @@ G.FX = (function () {
   function update(dt) {
     for (const s of fx.sparks) {
       s.age += dt;
-      if (!s.flash) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 900 * dt; s.vx *= 0.92; }
+      if (s.float) { s.x += s.vx * dt; s.y += s.vy * dt; }
+      else if (!s.flash) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 900 * dt; s.vx *= 0.92; }
     }
     fx.sparks = fx.sparks.filter(s => s.age < s.life);
     fx.trail.forEach(t => { t.age += dt; });
@@ -145,7 +154,7 @@ G.FX = (function () {
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
       } else {
-        ctx.strokeStyle = `rgba(255, 220, 140, ${k})`;
+        ctx.strokeStyle = s.green ? `rgba(140, 255, 160, ${k})` : `rgba(255, 220, 140, ${k})`;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 0.025, s.y - s.vy * 0.025); ctx.stroke();
       }
@@ -166,5 +175,5 @@ G.FX = (function () {
     ctx.restore();
   }
 
-  return { state: fx, hitstop, shake, ring, spark, text, trailPoint, ghost, slash, update, drawBack, drawFront };
+  return { state: fx, hitstop, shake, ring, spark, heal, text, trailPoint, ghost, slash, update, drawBack, drawFront };
 })();

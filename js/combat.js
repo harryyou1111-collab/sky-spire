@@ -46,6 +46,7 @@ G.Combat = (function () {
     if (p.dead || p.iframe > 0) return false;
     p.hp = Math.max(0, p.hp - dmg);
     p.atk = null; p.dash = null;
+    if (p.drink > 0) { p.drink = 0; G.FX.text(p.x, S().screenY(p.z, p.h + 150), '포션 놓침', '#ff8a7a'); }
     let dx = p.x - fromX, dz = p.z - fromZ;
     const len = Math.hypot(dx, dz) || 1;
     dx /= len; dz /= len;

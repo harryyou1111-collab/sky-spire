@@ -18,10 +18,16 @@
   // ---------- 게임 흐름: 승리 / 패배 / 재도전, 플레이어 체력 표시 ----------
   const result = document.getElementById('result');
   const hpFill = document.querySelector('#player-hp .fill');
+  const potionCount = document.getElementById('potion-count');
+  const potionBtn = document.querySelector('[data-act="heal"]');
   G.Game = {
     win() { show('승리', `${G.Boss.def.name}을(를) 쓰러뜨렸습니다`); },
     lose() { setTimeout(() => show('패배', '쓰러졌습니다'), 900); },
-    updateHUD() { hpFill.style.width = (player.hp / CFG.player.maxHp * 100) + '%'; },
+    updateHUD() {
+      hpFill.style.width = (player.hp / CFG.player.maxHp * 100) + '%';
+      potionCount.textContent = player.potions;
+      potionBtn.classList.toggle('empty', player.potions <= 0);
+    },
     restart() {
       Object.assign(player, G.Player.create(START.x, START.z));
       G.Boss.reset();
@@ -62,6 +68,7 @@
   // 보스가 주인공이므로 배경은 단순하게: 보스 테마 색의 하늘 + 보스 뒤 큰 달 + 실루엣
   function drawBackground() {
     const H = CFG.VIEW_H, th = G.Boss.def.theme;
+    if (G.Render.background(ctx, th.bg, viewW, H, camX, CFG.ARENA_W)) return;   // 배경 그림이 있으면 그것만
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, th.sky[0]);
     sky.addColorStop(0.55, th.sky[1]);
@@ -127,6 +134,7 @@
       `x ${p.x.toFixed(0)}  깊이 ${p.z.toFixed(0)}  높이 ${p.h.toFixed(0)}  점프 ${p.jumps}`,
       `ground ${p.onGround}  stick ${G.Input.axis.x.toFixed(1)},${G.Input.axis.y.toFixed(1)}`,
       `dash cd ${p.dashCd.toFixed(2)}  무적 ${p.iframe > 0 ? 'ON' : '-'}`,
+      G.Render.missing.size ? `없는 그림 ${G.Render.missing.size}개 (도형으로 대신)` : '그림 파일 모두 있음',
       `체력 ${p.hp}  보스 ${G.Boss.state.hp}/${G.Boss.state.maxHp}  손 ${G.Boss.state.hands.map(h => h.state).join(',')}`,
     ];
     lines.forEach((t, i) => ctx.fillText(t, 12 * s, (40 + i * 14) * s));

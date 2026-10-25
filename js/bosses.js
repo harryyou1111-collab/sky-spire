@@ -3,7 +3,8 @@
 //
 // 새 보스를 만들 때 이 파일에 항목 하나를 추가합니다.
 //   body    : 뼈대 길이 (거인형 정면 뼈대 기준)
-//   skin    : 파츠별 모양과 색 (2단계에서 일러스트 파일로 교체)
+//   skin    : 파츠별 모양과 색. img 파일이 있으면 그 그림을, 없으면 도형을 그림
+//             (img 규칙은 render.js 맨 위 설명 참고)
 //   theme   : 배경 분위기
 //   patterns: 사용하는 공격 패턴과 수치 (패턴 동작은 boss.js)
 //   phase2  : 체력이 일정 이하일 때 바뀌는 수치
@@ -24,15 +25,22 @@ G.BossDefs = {
     fist: { r: 34 },                                         // 주먹 크기 (그림자·판정용)
 
     skin: {
-      torso:    { shape: 'beastTorso', w1: 118, w2: 196, color: '#8b6a4e', shade: '#6d5139', fur: '#5a4330', leaf: '#5e8a3a' },
-      head:     { shape: 'hornedHead', r: 46, color: '#987657', horn: '#d8c7a3', beard: '#5a4330', eye: '#9dff7a' },
-      armL_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3 },
-      armR_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3 },
-      armL_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45' },
-      armR_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45' },
+      torso:    { shape: 'beastTorso', w1: 118, w2: 196, color: '#8b6a4e', shade: '#6d5139', fur: '#5a4330', leaf: '#5e8a3a',
+                  img: 'assets/bosses/pan/torso.png', anchor: 'bottom', lenMul: 1.12 },
+      head:     { shape: 'hornedHead', r: 46, color: '#987657', horn: '#d8c7a3', beard: '#5a4330', eye: '#9dff7a',
+                  img: 'assets/bosses/pan/head.png', anchor: 'bottom', lenMul: 1.6, offset: [0, 30] },
+      armL_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3,
+                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.15, offset: [0, -8] },
+      armR_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3,
+                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.15, offset: [0, -8], mirror: true },
+      armL_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
+                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.55, offset: [0, -8] },
+      armR_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
+                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.55, offset: [0, -8], mirror: true },
     },
 
     theme: {
+      bg: 'assets/bosses/pan/bg.jpg',          // 배경 그림 (없으면 아래 색으로 그림)
       sky: ['#07100c', '#173024', '#0b120e'],
       moon: '210, 255, 200',
       silhouette: 'trees',
