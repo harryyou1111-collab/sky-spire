@@ -79,15 +79,16 @@ G.Rig = (function () {
     const base = angleOf(dx, dy);
     const cosA = (l1 * l1 + D * D - l2 * l2) / (2 * l1 * D);
     const alpha = Math.acos(Math.max(-1, Math.min(1, cosA)));
-    // 두 가지 굽힘 중 팔꿈치가 outSign 쪽으로 나가는 것을 고름
+    // 두 가지 굽힘 중 팔꿈치가 "아래로 처지면서 outSign 쪽으로 나가는" 것을 고름
+    // (위로 꺾인 팔꿈치는 부자연스러움)
     let best = null;
     for (const sgn of [1, -1]) {
       const a1 = base + sgn * alpha;
-      const ex = S.x - Math.sin(a1) * l1;
-      if (!best || (ex - S.x) * outSign > best.score) {
-        const ey = S.y + Math.cos(a1) * l1;
+      const ex = S.x - Math.sin(a1) * l1, ey = S.y + Math.cos(a1) * l1;
+      const score = (ex - S.x) * outSign + (ey - S.y) * 0.5;
+      if (!best || score > best.score) {
         const tx = S.x + dx / Math.hypot(dx, dy) * D, ty = S.y + dy / Math.hypot(dx, dy) * D;
-        best = { a1, a2: angleOf(tx - ex, ty - ey), score: (ex - S.x) * outSign };
+        best = { a1, a2: angleOf(tx - ex, ty - ey), score };
       }
     }
     return { a1: best.a1, a2: best.a2, reached };

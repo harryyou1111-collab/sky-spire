@@ -81,11 +81,20 @@ G.Stage = (function () {
     }
   })();
 
+  // 바닥·기둥 색: 보스 테마(bosses.js의 theme.ground)가 있으면 그 색, 없으면 기본 돌색
+  const DEFAULT_GROUND = { far: '#1e1a27', near: '#383046', line: '#4a4058', front: '#1b1622', wall: '#0f0c15',
+                           side: ['#2c2537', '#463c55', '#2a2334'], top: '#5a4f6c', rim: '#7a6d90' };
+  function ground() {
+    const t = G.Boss && G.Boss.def && G.Boss.def.theme && G.Boss.def.theme.ground;
+    return Object.assign({}, DEFAULT_GROUND, t || {});
+  }
+
   function drawFloor(ctx) {
+    const C = ground();
     const W = CFG.ARENA_W, far = floorY(0);
     const g = ctx.createLinearGradient(0, far, 0, NEAR_Y);
-    g.addColorStop(0, '#1e1a27');
-    g.addColorStop(1, '#383046');
+    g.addColorStop(0, C.far);
+    g.addColorStop(1, C.near);
     ctx.fillStyle = g;
     ctx.fillRect(-200, far, W + 400, NEAR_Y - far);
     // 돌 틈 무늬
@@ -99,29 +108,30 @@ G.Stage = (function () {
       ctx.stroke();
     }
     // 안쪽 벽과 만나는 선, 앞쪽 단면
-    ctx.fillStyle = '#4a4058';
+    ctx.fillStyle = C.line;
     ctx.fillRect(-200, far - 2, W + 400, 2);
-    ctx.fillStyle = '#1b1622';
+    ctx.fillStyle = C.front;
     ctx.fillRect(-200, NEAR_Y, W + 400, CFG.VIEW_H - NEAR_Y + 400);
-    ctx.fillStyle = '#4a4058';
+    ctx.fillStyle = C.line;
     ctx.fillRect(-200, NEAR_Y, W + 400, 2);
     // 양쪽 끝 벽
-    ctx.fillStyle = '#0f0c15';
+    ctx.fillStyle = C.wall;
     ctx.fillRect(-200, -400, 200, CFG.VIEW_H + 800);
     ctx.fillRect(W, -400, 200, CFG.VIEW_H + 800);
   }
 
   // highlight: 플레이어가 이 기둥에 올라설 수 있는 깊이에 있으면 테두리를 밝게
   function drawPillar(ctx, p, highlight) {
+    const C = ground();
     const cx = p.x, top = floorY(p.z) - p.h, bot = floorY(p.z);
     // 바닥 그림자
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.ellipse(cx, bot + 2, p.rx + 6, p.rz * 0.9, 0, 0, Math.PI * 2); ctx.fill();
     // 옆면 (원기둥)
     const side = ctx.createLinearGradient(cx - p.rx, 0, cx + p.rx, 0);
-    side.addColorStop(0, '#2c2537');
-    side.addColorStop(0.45, '#463c55');
-    side.addColorStop(1, '#2a2334');
+    side.addColorStop(0, C.side[0]);
+    side.addColorStop(0.45, C.side[1]);
+    side.addColorStop(1, C.side[2]);
     ctx.fillStyle = side;
     ctx.beginPath();
     ctx.moveTo(cx - p.rx, top);
@@ -138,13 +148,13 @@ G.Stage = (function () {
       ctx.beginPath(); ctx.moveTo(x, top + dy); ctx.lineTo(x, bot + dy); ctx.stroke();
     }
     // 윗면 (부서진 단면)
-    ctx.fillStyle = '#5a4f6c';
+    ctx.fillStyle = C.top;
     ctx.beginPath(); ctx.ellipse(cx, top, p.rx, p.rz, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,.15)';
     ctx.beginPath(); ctx.ellipse(cx - p.rx * 0.2, top + p.rz * 0.1, p.rx * 0.5, p.rz * 0.45, 0.3, 0, Math.PI * 2); ctx.fill();
     // 테두리
     ctx.lineWidth = highlight ? 2.2 : 1.4;
-    ctx.strokeStyle = highlight ? '#e8d49a' : '#7a6d90';
+    ctx.strokeStyle = highlight ? '#e8d49a' : C.rim;
     ctx.beginPath(); ctx.ellipse(cx, top, p.rx, p.rz, 0, 0, Math.PI * 2); ctx.stroke();
   }
 

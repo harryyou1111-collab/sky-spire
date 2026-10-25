@@ -22,7 +22,8 @@ G.BossDefs = {
 
     // shoulderDrop: 몸통 꼭대기(목)에서 어깨 관절까지 내려온 거리 — 그림의 어깨 위치에 맞춤
     body: { torso: 180, head: 123, armUp: 134, armLow: 141, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48 },
-    restHands: [{ dx: -255, z: 66 }, { dx: 255, z: 66 }],   // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z)
+    // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 팔을 거의 곧게 뻗어 비스듬히 바닥을 짚는 자세가 되도록
+    restHands: [{ dx: -278, z: 72 }, { dx: 278, z: 72 }],
     fist: { r: 34 },                                         // 주먹 크기 (그림자·판정용)
 
     skin: {
@@ -31,20 +32,24 @@ G.BossDefs = {
       head:     { shape: 'hornedHead', r: 46, color: '#987657', horn: '#d8c7a3', beard: '#5a4330', eye: '#9dff7a',
                   img: 'assets/bosses/pan/head.png', anchor: 'bottom', lenMul: 1.36, offset: [0, 42] },
       armL_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3,
-                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.12, widthMul: 1.45, offset: [0, -12] },
+                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.12, widthMul: 1.3, offset: [0, -12], mirror: true },
       armR_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3,
-                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.12, widthMul: 1.45, offset: [0, -12], mirror: true },
+                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.12, widthMul: 1.3, offset: [0, -12] },
       armL_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
-                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.35, offset: [0, -12] },
+                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.25, offset: [0, -12], mirror: true },
       armR_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
-                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.35, offset: [0, -12], mirror: true },
+                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.25, offset: [0, -12] },
     },
 
     theme: {
       bg: 'assets/bosses/pan/bg.jpg',          // 배경 그림 (없으면 아래 색으로 그림)
+      horizon: 0.64,                           // 배경 그림에서 땅이 시작되는 높이 (위에서부터 비율)
       sky: ['#07100c', '#173024', '#0b120e'],
       moon: '210, 255, 200',
       silhouette: 'trees',
+      // 이끼 낀 숲 폐허 바닥과 기둥
+      ground: { far: '#121a14', near: '#26301f', line: '#3b4a30', front: '#0c120d', wall: '#060a07',
+                side: ['#1f281c', '#37442f', '#1c2419'], top: '#46553a', rim: '#6a7d52' },
     },
 
     patterns: {

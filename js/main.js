@@ -68,7 +68,8 @@
   // 보스가 주인공이므로 배경은 단순하게: 보스 테마 색의 하늘 + 보스 뒤 큰 달 + 실루엣
   function drawBackground() {
     const H = CFG.VIEW_H, th = G.Boss.def.theme;
-    if (G.Render.background(ctx, th.bg, viewW, H, camX, CFG.ARENA_W)) return;   // 배경 그림이 있으면 그것만
+    // 배경 그림이 있으면 그것만 (그림 속 지평선을 전투장 안쪽 끝에 맞춤)
+    if (G.Render.background(ctx, th.bg, viewW, H, camX, CFG.ARENA_W, th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0])) return;
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, th.sky[0]);
     sky.addColorStop(0.55, th.sky[1]);

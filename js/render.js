@@ -24,7 +24,7 @@ G.Render = (function () {
       rec = images[src] = { im, ok: false };
       im.onload = () => { rec.ok = im.naturalWidth > 0; };
       im.onerror = () => { missing.add(src); console.warn('이미지 없음 (도형으로 대신 그림):', src); };
-      im.src = src;
+      im.src = src + '?v=' + (G.VERSION || 0);   // 업데이트 번호를 붙여서 예전 그림(캐시)을 쓰지 않게
     }
     return rec.ok ? rec.im : null;
   }
@@ -51,14 +51,29 @@ G.Render = (function () {
     else SHAPES[part.shape](ctx, len, part);
   }
 
-  // 배경 이미지: 화면을 꽉 채우도록 확대, 카메라보다 천천히 움직임
-  function background(ctx, src, viewW, viewH, camX, arenaW) {
+  // 배경 이미지: 그림 속 지평선(horizon, 위에서부터 비율)을 전투장 안쪽 끝(horizonY)에 맞추고,
+  // 가로는 전투장 너비에 맞춤 (화면이 더 넓으면 양옆은 edge 색으로 채우고 부드럽게 이어 붙임)
+  function background(ctx, src, viewW, viewH, camX, arenaW, horizon, horizonY, edge) {
     const im = src && getImg(src);
     if (!im) return false;
-    const k = Math.max(viewW / im.naturalWidth, viewH / im.naturalHeight) * 1.08;
-    const w = im.naturalWidth * k, h = im.naturalHeight * k;
-    const cx = arenaW / 2 - camX * 0.85;
-    ctx.drawImage(im, cx - w / 2, viewH - h, w, h);
+    const iw = im.naturalWidth, ih = im.naturalHeight;
+    const k = Math.max(arenaW * 0.98 / iw, horizonY / (horizon * ih));
+    const w = iw * k, h = ih * k;
+    // 그림 위쪽(달)이 잘리지 않게: 지평선을 맞추면 위가 잘릴 경우, 그림을 내려서 위를 화면 맨 위에 맞춤
+    // (그림의 땅 부분은 전투장 바닥에 가려짐)
+    const x = arenaW / 2 - camX * 0.85 - w / 2, y = Math.max(horizonY - horizon * h, 0);
+    ctx.fillStyle = edge || '#000';
+    ctx.fillRect(0, 0, viewW, viewH);
+    ctx.drawImage(im, x, y, w, h);
+    // 그림 양옆 가장자리를 바깥 색으로 흐리게
+    for (const side of [0, 1]) {
+      const gx = side ? x + w - 60 : x;
+      const g = ctx.createLinearGradient(gx, 0, gx + 60, 0);
+      g.addColorStop(side ? 0 : 1, 'rgba(0,0,0,0)');
+      g.addColorStop(side ? 1 : 0, edge || '#000');
+      ctx.fillStyle = g;
+      ctx.fillRect(gx, y, 61, h);
+    }
     return true;
   }
 

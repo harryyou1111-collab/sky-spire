@@ -287,7 +287,7 @@ G.Boss = (function () {
   function startFlute() {
     const p = params('flute');
     boss.pattern = { kind: 'flute', t: 0, p, fired: 0 };
-    takeHands();
+    // 손은 바닥을 짚은 채로 두고, 피리는 입 앞에 마법처럼 나타남 (팔을 접으면 그림이 얼굴을 가림)
   }
 
   // ---------- 가시덩굴 ----------
@@ -306,9 +306,6 @@ G.Boss = (function () {
     const P = boss.pattern, p = P.p;
     P.t += dt;
     if (P.kind === 'flute') {
-      // 두 손을 입 앞으로 (피리 잡기)
-      const mouthH = def.body.torso - def.body.hipBelowEdge + def.body.head * 0.15 - def.fist.r;
-      boss.hands.forEach((h, i) => handTo(h, boss.x + (i ? 34 : -34), 0, mouthH, P.t / 0.4));
       if (P.t > p.telegraph) {
         const k = Math.floor((P.t - p.telegraph) / p.gap);
         while (P.fired <= k && P.fired < p.rings) {
@@ -316,7 +313,7 @@ G.Boss = (function () {
           P.fired++;
           G.FX.shake(3, 0.12);
         }
-        if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) { boss.pattern = null; releaseHands(); }
+        if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) boss.pattern = null;
       }
     } else if (P.kind === 'vines') {
       // 손을 들었다가 예고 끝에 땅을 짚음
@@ -427,9 +424,10 @@ G.Boss = (function () {
 
   // 피리(시링크스): 길이가 다른 관을 나란히 묶은 것. 두 손 사이, 입 앞
   function drawFlute(ctx, P) {
-    const [a, b] = boss.hands;
-    const cx = (a.x + b.x) / 2, cy = S().screenY(0, (a.h + b.h) / 2 + def.fist.r) - 10;
-    const k = Math.min(1, P.t / 0.4);
+    // 입 위치: 머리 뼈의 아래쪽 (목에서 머리 길이의 15%)
+    const hd = boss.joints.head, m = 0.15 * hd.len;
+    const cx = boss.x + hd.o.x - Math.sin(hd.a) * m, cy = boss.y + hd.o.y + Math.cos(hd.a) * m;
+    const k = Math.min(1, P.t / 0.3);
     ctx.save();
     ctx.globalAlpha = k;
     for (let i = 0; i < 7; i++) {
