@@ -43,6 +43,12 @@ html, body {
   display: flex; align-items: flex-end; gap: 12px;
 }
 .pad-right { right: max(18px, env(safe-area-inset-right)); }
+/* 오른쪽 버튼 배치: 공격(오른쪽 아래, 크게), 점프(공격 왼쪽), 회피(그 위) */
+.pad-right { width: 172px; height: 172px; display: block; }
+.pad-right .btn { position: absolute; }
+.pad-right [data-act="attack"] { right: 0; bottom: 0; margin: 0; }
+.pad-right [data-act="jump"]   { right: 96px; bottom: 6px; }
+.pad-right [data-act="dodge"]  { right: 68px; bottom: 96px; }
 
 .btn {
   pointer-events: auto;

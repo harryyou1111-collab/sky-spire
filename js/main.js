@@ -9,10 +9,11 @@
   let scale = 1;      // 게임 단위 1 = 화면 픽셀 몇 개인가
   let viewW = 640;    // 화면에 보이는 가로 길이 (게임 단위)
   let camX = 0;
+  let camY = 0;      // 높은 곳에 올라가면 화면이 위로 따라감 (0 또는 음수)
 
-  const player = G.Player.create(160);
-  G.Combat.addDummy(300);   // 훈련용 허수아비 (1-3단계에서 몬스터로 교체)
-  G.Combat.addDummy(905);
+  const player = G.Player.create(160, 60);
+  G.Combat.addDummy(290, 40);   // 훈련용 허수아비 (1-3단계에서 몬스터로 교체)
+  G.Combat.addDummy(905, 70);
 
   // ---------- 화면 크기 맞추기 ----------
   function resize() {
@@ -31,6 +32,8 @@
     if (viewW >= CFG.ARENA_W) target = (CFG.ARENA_W - viewW) / 2;
     else target = Math.max(0, Math.min(CFG.ARENA_W - viewW, target));
     camX = snap ? target : camX + (target - camX) * Math.min(1, CFG.camera.follow * dt);
+    const targetY = Math.min(0, player.sy - 150);   // 발이 화면 위쪽(150)보다 올라가면 따라감
+    camY = snap ? targetY : camY + (targetY - camY) * Math.min(1, CFG.camera.follow * 0.6 * dt);
   }
 
   // ---------- 임시 배경 (2단계에서 일러스트 배경으로 교체) ----------
@@ -81,24 +84,6 @@
     for (let x = off - gap; x < viewW + gap; x += gap) drawAt(x);
   }
 
-  // 바닥과 벽 (월드 좌표로 그림)
-  function drawArena() {
-    const GY = CFG.GROUND_Y, H = CFG.VIEW_H, W = CFG.ARENA_W;
-    ctx.fillStyle = '#2a2433';
-    ctx.fillRect(-200, GY, W + 400, H - GY);
-    ctx.fillStyle = '#4a4058';
-    ctx.fillRect(-200, GY, W + 400, 3);
-    ctx.strokeStyle = '#211c29';
-    ctx.lineWidth = 1.5;
-    for (let x = 0; x < W; x += 64) {
-      ctx.beginPath(); ctx.moveTo(x, GY + 3); ctx.lineTo(x - 10, H); ctx.stroke();
-    }
-    // 양쪽 벽
-    ctx.fillStyle = '#0f0c15';
-    ctx.fillRect(-200, 0, 200, GY);
-    ctx.fillRect(W, 0, 200, GY);
-  }
-
   // ---------- 디버그 ----------
   const dbgBtn = document.getElementById('btn-debug');
   dbgBtn.classList.toggle('on', CFG.debug);
@@ -118,7 +103,7 @@
     const lines = [
       `FPS ${fps.toFixed(0)}`,
       `state ${p.state}${p.atk ? ' / ' + p.atk.phase : ''}`,
-      `x ${p.x.toFixed(0)}  vx ${p.vx.toFixed(0)}  vy ${p.vy.toFixed(0)}`,
+      `x ${p.x.toFixed(0)}  깊이 ${p.z.toFixed(0)}  높이 ${p.h.toFixed(0)}  점프 ${p.jumps}`,
       `ground ${p.onGround}  stick ${G.Input.axis.x.toFixed(1)},${G.Input.axis.y.toFixed(1)}`,
       `dash cd ${p.dashCd.toFixed(2)}  무적 ${p.iframe > 0 ? 'ON' : '-'}`,
       `허수아비 누적 피해 ${G.Combat.targets.map(t => t.total).join(' / ')}`,
@@ -129,6 +114,7 @@
 
   // ---------- 게임 루프 ----------
   let last = performance.now(), acc = 0;
+  player.sy = G.Stage.screenY(player.z, player.h);
   updateCamera(0, true);
 
   function frame(now) {
@@ -159,11 +145,12 @@
     // 그리기
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawBackground();
-    ctx.setTransform(scale, 0, 0, scale, -camX * scale, 0);
-    drawArena();
-    G.Stage.draw(ctx);
-    G.Combat.drawTargets(ctx);
-    G.Player.draw(ctx, player);
+    ctx.setTransform(scale, 0, 0, scale, -camX * scale, -camY * scale);
+    G.Stage.drawFloor(ctx);
+    // 안쪽(z 작음)부터 그려서 앞에 있는 것이 위에 보이게
+    const list = [...G.Stage.drawables(), ...G.Combat.drawables(), G.Player.drawable(player)];
+    list.sort((a, b) => a.key - b.key);
+    for (const d of list) d.draw(ctx);
     G.FX.drawFront(ctx);
     if (CFG.debug) G.Combat.drawDebug(ctx, player);
     if (CFG.debug) drawDebug();

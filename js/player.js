@@ -94,11 +94,6 @@ G.Player = (function () {
         legF_up: -10, legF_low: 30, legB_up: 10, legB_low: 30 },
       P(HEAVY, { torso: 24, head: -14, armF_up: -30, armF_low: 0,  weapon: 66, armB_up: 50, armB_low: -10 }),
       P(HEAVY, { torso: 26, head: -14, armF_up: -10, armF_low: -5, weapon: 84, armB_up: 50, armB_low: -10 }));
-    const STRAIGHT = { legF_up: -10, legF_low: 10, legB_up: 10, legB_low: 10 };
-    CLIPS.atk_up = attackClip(A.up,         // 위로 베기
-      P(SET,      { torso: 8,   head: -4, armF_up: -20,  armF_low: -30, weapon: 64, armB_up: 20, armB_low: -30 }),
-      P(STRAIGHT, { torso: -8,  head: 6,  armF_up: -170, armF_low: 0,   weapon: 83, armB_up: 30, armB_low: -20 }),
-      P(STRAIGHT, { torso: -12, head: 8,  armF_up: -185, armF_low: 0,   weapon: 67, armB_up: 30, armB_low: -20 }));
     CLIPS.atk_down = { dur: 0.1, loop: false, keys: [ // 공중 내려찍기: 칼끝을 아래로
       { t: 0, p: { torso: 10, head: -8, armF_up: -10, armF_low: -20, weapon: 110, armB_up: -60, armB_low: -30,
                    legF_up: -60, legF_low: 90, legB_up: -20, legB_low: 100 } },
@@ -107,6 +102,11 @@ G.Player = (function () {
   CLIPS.dash = { dur: 0.1, loop: false, keys: [
     { t: 0, p: { torso: 32, head: -18, armF_up: 40, armF_low: -20, weapon: 60, armB_up: 55, armB_low: -20,
                  legF_up: -30, legF_low: 60, legB_up: 45, legB_low: 40 } },
+  ] };
+  // 더블 점프: 무릎을 모아 웅크린 자세
+  CLIPS.jump2 = { dur: 0.15, loop: false, keys: [
+    { t: 0, p: { torso: 20, head: -12, legF_up: -80, legF_low: 110, legB_up: -40, legB_low: 110,
+                 armB_up: -40, armB_low: -60, armF_up: -60, armF_low: -70, weapon: 50 } },
   ] };
   buildAttackClips();
 
@@ -119,20 +119,22 @@ G.Player = (function () {
     GHOST[k] = g;
   }
 
-  function create(x) {
+
+  function create(x, z) {
     const c = C();
     return {
-      x, y: G.CFG.GROUND_Y, vx: 0, vy: 0,
-      halfWidth: c.halfWidth, height: c.height,   // 충돌 상자 (stage.js가 사용)
+      x, z, h: 0,                 // 좌우, 깊이, 높이 (stage.js 맨 위 설명 참고)
+      vx: 0, vz: 0, vh: 0,
+      sy: 0,                      // 화면에 그릴 발 위치 y (매 프레임 계산)
+      halfWidth: c.halfWidth, halfDepth: c.halfDepth, height: c.height,
       facing: 1,
       onGround: true,
-      coyote: 0, jumpBuf: 0, jumpCutDone: true, dropTimer: 0,
-      landTimer: 0,
+      coyote: 0, jumpBuf: 0, jumpCutDone: true, jumps: 0, landTimer: 0,
       // 공격
       atk: null, atkBuf: 0, combo: 0, chainT: 0, atkCount: 0, animAtkId: -1,
       // 대시
       dash: null, dashBuf: 0, dashCd: 0, airDashUsed: false, iframe: 0, ghostT: 0,
-      state: 'idle',
+      state: 'idle', jumpAnim: 'jump',
       anim: new G.Rig.Animator(CLIPS),
       joints: null,
     };
@@ -155,7 +157,6 @@ G.Player = (function () {
     p.dashBuf = I.pressed.dodge ? 0.1 : Math.max(0, p.dashBuf - dt);
     p.dashCd = Math.max(0, p.dashCd - dt);
     p.iframe = Math.max(0, p.iframe - dt);
-    p.dropTimer = Math.max(0, p.dropTimer - dt);
     p.chainT = Math.max(0, p.chainT - dt);
     p.coyote = p.onGround ? c.coyoteTime : Math.max(0, p.coyote - dt);
 
@@ -163,87 +164,94 @@ G.Player = (function () {
     if (p.dashBuf > 0 && p.dashCd <= 0 && !p.dash && (p.onGround || !p.airDashUsed)) startDash(p, ax, ay);
 
     if (p.dash) updateDash(p, dt);
-    else if (p.atk) updateAttack(p, dt, ax);
+    else if (p.atk) updateAttack(p, dt, ax, ay);
     else freeMove(p, dt, ax, ay);
 
-    // 중력 (대시 중에는 없음)
-    if (!p.dash) {
-      const g = G.CFG.GRAVITY * (p.vy > 0 ? G.CFG.FALL_GRAVITY_MULT : 1);
-      p.vy = Math.min(p.vy + g * dt, G.CFG.MAX_FALL);
-      if (p.atk && p.atk.kind === 'down' && p.atk.t >= p.atk.def.startup) p.vy = Math.max(p.vy, 480);
+    // 중력 (대시 중에는 공중에 멈춤)
+    if (p.dash) p.vh = 0;
+    else {
+      const g = G.CFG.GRAVITY * (p.vh < 0 ? G.CFG.FALL_GRAVITY_MULT : 1);
+      p.vh = Math.max(p.vh - g * dt, -G.CFG.MAX_FALL);
+      if (p.atk && p.atk.kind === 'down' && p.atk.t >= p.atk.def.startup) p.vh = Math.min(p.vh, -480);
     }
 
     // 이동 + 충돌
     const wasGround = p.onGround;
     p.onGround = G.Stage.move(p, dt);
-    if (p.onGround && !wasGround) {   // 막 착지
+    if (p.onGround && !wasGround) {           // 막 착지
       p.landTimer = c.landTime;
       p.airDashUsed = false;
+      p.jumps = 0;
       if (p.atk && p.atk.kind === 'down') p.atk = null;
     }
+    if (!p.onGround && wasGround && p.jumps === 0 && p.coyote <= 0) p.jumps = 1; // 걸어서 떨어지면 공중 점프 1번만
+    if (!p.onGround && p.coyote <= 0 && p.jumps === 0) p.jumps = 1;
     p.landTimer = Math.max(0, p.landTimer - dt);
 
     // 공격 판정
     if (p.atk && p.atk.phase === 'active' && G.Combat.playerAttack(p) && p.atk.kind === 'down') {
-      // 내려찍기가 맞으면 위로 튕겨 오름 (공중 대시도 다시 사용 가능)
-      p.vy = -p.atk.def.pogo;
+      // 내려찍기가 맞으면 위로 튕겨 오름 (공중 대시, 더블 점프 회복)
+      p.vh = p.atk.def.pogo;
       p.atk = null;
       p.airDashUsed = false;
+      p.jumps = 1;
       p.jumpCutDone = true;
     }
   }
 
-  // ---------- 자유 이동: 걷기, 점프, 발판 내려가기, 공격 시작 ----------
+  // 좌우 + 깊이 이동 (가속/감속은 두 방향에 따로 적용)
+  function steer(p, dt, ax, ay, mul) {
+    const c = C();
+    const tx = ax * c.maxSpeed, tz = ay * c.maxSpeed * c.depthSpeed;
+    const rate = (target, v) => {
+      if (p.onGround) {
+        if (target === 0) return c.decel;
+        if (v !== 0 && Math.sign(v) !== Math.sign(target)) return c.turnAccel;
+        return c.accel;
+      }
+      return target === 0 ? c.airDecel : c.airAccel;
+    };
+    p.vx = approach(p.vx, tx, rate(tx, p.vx) * mul * dt);
+    p.vz = approach(p.vz, tz, rate(tz, p.vz) * mul * dt);
+  }
+
+  // ---------- 자유 이동: 걷기, 점프, 더블 점프, 공격 시작 ----------
   function freeMove(p, dt, ax, ay) {
     const c = C(), I = G.Input;
-    const dir = Math.sign(ax);
-    const target = ax * c.maxSpeed;   // 조이스틱을 덜 밀면 천천히 걸음
-    let rate;
-    if (p.onGround) {
-      if (dir === 0) rate = c.decel;
-      else if (p.vx !== 0 && Math.sign(p.vx) !== dir) rate = c.turnAccel;
-      else rate = c.accel;
-    } else {
-      rate = dir === 0 ? c.airDecel : c.airAccel;
-    }
-    p.vx = approach(p.vx, target, rate * dt);
-    if (dir !== 0) p.facing = dir;
+    steer(p, dt, ax, ay, 1);
+    if (ax !== 0) p.facing = Math.sign(ax);
 
     if (p.jumpBuf > 0) {
-      if (p.onGround && ay > 0.5 && G.Stage.onPlatform(p)) {
-        // 아래 + 점프: 통과 발판에서 내려오기
-        p.dropTimer = c.dropTime;
-        p.jumpBuf = 0;
-        p.onGround = false; p.coyote = 0;
-      } else if (p.coyote > 0) {
-        jump(p);
-      }
+      if (p.coyote > 0) jump(p, 1);
+      else if (p.jumps < 2) jump(p, c.doubleJump);   // 공중에서 한 번 더
     }
     // 점프 버튼을 일찍 떼면 낮게 뜀
-    if (!p.jumpCutDone && !I.held.jump && p.vy < 0) {
-      p.vy = Math.max(p.vy, -c.jumpVel * c.jumpCut);
+    if (!p.jumpCutDone && !I.held.jump && p.vh > 0) {
+      p.vh = Math.min(p.vh, c.jumpVel * c.jumpCut);
       p.jumpCutDone = true;
     }
 
     if (p.atkBuf > 0) startAttack(p, ax, ay);
   }
 
-  function jump(p) {
+  function jump(p, power) {
     const c = C();
-    p.vy = -c.jumpVel;
+    p.vh = c.jumpVel * power;
+    p.jumps = p.onGround || p.coyote > 0 ? 1 : 2;
+    p.jumpAnim = p.jumps === 2 ? 'jump2' : 'jump';
     p.onGround = false;
     p.coyote = 0; p.jumpBuf = 0;
     p.jumpCutDone = false;
     p.landTimer = 0;
+    if (p.jumps === 2) p.anim.play('jump2', true, 0.04);
   }
 
   // ---------- 공격 ----------
-  // 조이스틱 위 + 공격 = 위 베기, 공중에서 아래 + 공격 = 내려찍기, 그 외 = 3연타
+  // 공중에서 조이스틱을 똑바로 아래로 + 공격 = 내려찍기, 그 외 = 3연타
   function startAttack(p, ax, ay) {
     const A = G.CFG.attack;
     let kind;
-    if (ay < -0.5) kind = 'up';
-    else if (!p.onGround && ay > 0.5) kind = 'down';
+    if (!p.onGround && ay > 0.8 && Math.abs(ax) < 0.35) kind = 'down';
     else {
       const n = (p.chainT > 0 && p.combo < 3) ? p.combo + 1 : 1;
       p.combo = n;
@@ -255,7 +263,7 @@ G.Player = (function () {
     p.chainT = 0;
   }
 
-  function updateAttack(p, dt, ax) {
+  function updateAttack(p, dt, ax, ay) {
     const c = C(), a = p.atk, d = a.def;
     a.t += dt;
     const s = d.startup, e = s + d.active, end = e + d.recovery;
@@ -266,8 +274,9 @@ G.Player = (function () {
     if (p.onGround) {
       if (a.phase === 'active' && !a.lunged && d.lunge > 0) { p.vx = p.facing * d.lunge; a.lunged = true; }
       else p.vx = approach(p.vx, 0, c.decel * 0.5 * dt);
+      p.vz = approach(p.vz, 0, c.decel * dt);
     } else {
-      p.vx = approach(p.vx, ax * c.maxSpeed, c.airAccel * 0.6 * dt);
+      steer(p, dt, ax, ay, 0.6);
     }
 
     // 3연타: 휘두르는 중에 공격을 누르면 다음 타를 예약
@@ -275,11 +284,15 @@ G.Player = (function () {
     if (a.queued && a.t >= e) {
       p.chainT = 1;
       p.atk = null;
-      startAttack(p, ax, G.Input.axis.y);
+      startAttack(p, ax, ay);
       return;
     }
     // 휘두른 뒤 빈틈에는 점프로 끊을 수 있음
-    if (a.phase === 'recovery' && p.jumpBuf > 0 && p.coyote > 0) { p.atk = null; jump(p); return; }
+    if (a.phase === 'recovery' && p.jumpBuf > 0 && (p.coyote > 0 || p.jumps < 2)) {
+      p.atk = null;
+      jump(p, p.coyote > 0 ? 1 : C().doubleJump);
+      return;
+    }
 
     if (a.t >= end && a.kind !== 'down') {
       p.atk = null;
@@ -288,21 +301,18 @@ G.Player = (function () {
     }
   }
 
-  // ---------- 회피 대시 (8방향) ----------
+  // ---------- 회피 대시 (바닥 평면 8방향: 좌우 + 안쪽/바깥쪽) ----------
   function startDash(p, ax, ay) {
     const d = G.CFG.dash;
-    let dx, dy;
-    if (ax === 0 && ay === 0) { dx = p.facing; dy = 0; }
+    let dx, dz;
+    if (ax === 0 && ay === 0) { dx = p.facing; dz = 0; }
     else {
       const ang = Math.round(Math.atan2(ay, ax) / (Math.PI / 4)) * (Math.PI / 4); // 45도 단위로 맞춤
       dx = Math.round(Math.cos(ang) * 1000) / 1000;
-      dy = Math.round(Math.sin(ang) * 1000) / 1000;
+      dz = Math.round(Math.sin(ang) * 1000) / 1000;
     }
-    if (p.onGround && dy > 0) { dx = dx !== 0 ? Math.sign(dx) : p.facing; dy = 0; } // 땅에서는 아래로 못 감
-    const len = Math.hypot(dx, dy); dx /= len; dy /= len;
-
     p.atk = null;
-    p.dash = { t: 0, dx, dy };
+    p.dash = { t: 0, dx, dz };
     p.dashCd = d.cooldown;
     p.iframe = d.iframe;
     p.dashBuf = 0;
@@ -316,10 +326,10 @@ G.Player = (function () {
     const d = G.CFG.dash, c = C(), D = p.dash;
     D.t += dt;
     p.vx = D.dx * d.speed;
-    p.vy = D.dy * d.speed;
+    p.vz = D.dz * d.speed * c.depthSpeed;
     if (D.t >= d.time) {
       p.vx = D.dx * c.maxSpeed;
-      p.vy = D.dy < 0 ? D.dy * d.speed * d.upKeep : 0;
+      p.vz = D.dz * c.maxSpeed * c.depthSpeed;
       p.dash = null;
     }
   }
@@ -335,32 +345,34 @@ G.Player = (function () {
       p.state = 'atk_' + p.atk.kind;
       if (p.atk.id !== p.animAtkId) { p.anim.play(p.state, true, 0.03); p.animAtkId = p.atk.id; }
     } else {
-      if (!p.onGround) p.state = p.vy < 0 ? 'jump' : 'fall';
-      else if (p.landTimer > 0 && Math.abs(p.vx) < 30) p.state = 'land';
-      else if (Math.abs(p.vx) > 15) {
+      const moving = Math.hypot(p.vx, p.vz);
+      if (!p.onGround) p.state = p.vh > 0 ? p.jumpAnim : 'fall';
+      else if (p.landTimer > 0 && moving < 30) p.state = 'land';
+      else if (moving > 15) {
         p.state = 'run';
-        speed = Math.max(0.45, Math.abs(p.vx) / c.maxSpeed);
+        speed = Math.max(0.45, moving / c.maxSpeed);
       } else p.state = 'idle';
       p.anim.play(p.state);
     }
     p.anim.update(dt, speed);
     p.joints = G.Rig.compute(SKELETON, p.anim.pose, p.onGround);
+    p.sy = G.Stage.screenY(p.z, p.h);
 
-    // 검 궤적: 타격 직전부터 휘두른 직후까지 기록
+    // 검 궤적: 타격 직전부터 휘두른 직후까지 기록 (화면 좌표)
     if (p.atk) {
       const d = p.atk.def;
       if (p.atk.t >= d.startup - 0.02 && p.atk.t < d.startup + d.active + 0.05) {
         const w = p.joints.weapon;
         const dirX = -Math.sin(w.a), dirY = Math.cos(w.a);
-        const toWorld = (k) => ({ x: p.x + p.facing * (w.o.x + dirX * w.len * k), y: p.y + w.o.y + dirY * w.len * k });
-        G.FX.trailPoint(toWorld(1), toWorld(0.35));
+        const at = (k) => ({ x: p.x + p.facing * (w.o.x + dirX * w.len * k), y: p.sy + w.o.y + dirY * w.len * k });
+        G.FX.trailPoint(at(1), at(0.35));
       }
     }
     // 대시 잔상
     if (p.dash) {
       p.ghostT -= dt;
       if (p.ghostT <= 0) {
-        G.FX.ghost({ joints: p.joints, x: p.x, y: p.y, facing: p.facing });
+        G.FX.ghost({ joints: p.joints, x: p.x, y: p.sy, facing: p.facing });
         p.ghostT = G.CFG.dash.ghostEvery;
       }
     }
@@ -374,13 +386,17 @@ G.Player = (function () {
   }
 
   function draw(ctx, p) {
-    const floor = G.Stage.surfaceBelow(p.x, p.y);
-    const air = Math.min(1, (floor - p.y) / 150);
-    G.Render.shadow(ctx, p.x, floor, 20 * (1 - air * 0.5), 0.45 * (1 - air * 0.6));
+    const c = C();
+    const floor = G.Stage.support(p.x, p.z, c.halfWidth, c.halfDepth, p.h);
+    const air = Math.min(1, (p.h - floor) / 150);
+    G.Render.shadow(ctx, p.x, G.Stage.screenY(p.z, floor), 20 * (1 - air * 0.5), 0.45 * (1 - air * 0.6));
     G.FX.drawBack(ctx, drawGhost);
-    G.Render.drawRig(ctx, p.joints, SKIN, ORDER, p.x, p.y, p.facing);
-    if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.y, p.facing);
+    G.Render.drawRig(ctx, p.joints, SKIN, ORDER, p.x, p.sy, p.facing);
+    if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.sy, p.facing);
   }
 
-  return { create, step, animate, draw };
+  // 깊이 정렬용 (z가 클수록 앞에 그림)
+  function drawable(p) { return { key: p.z, draw: ctx => draw(ctx, p) }; }
+
+  return { create, step, animate, drawable };
 })();

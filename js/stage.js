@@ -1,105 +1,135 @@
 // =====================================================================
-// stage.js — 전투 공간: 바닥, 발판, 장애물, 충돌 판정
-//   platforms : 통과 발판. 아래에서 뛰어 올라갈 수 있고, 아래+점프로 내려옴
-//   solids    : 막히는 장애물. 옆으로 못 지나가고 위에 올라설 수 있음
-// 층마다 이 목록만 바꾸면 다른 전투장이 됩니다. (좌표: x, y = 왼쪽 위)
+// stage.js — 전투 공간: 바닥, 상자형 장애물, 충돌 판정, 화면 좌표 변환
+//
+// 좌표 (3가지)
+//   x : 좌우 (오른쪽 +)
+//   z : 깊이. 0 = 화면 안쪽(멀리), DEPTH = 화면 바깥쪽(가까이)
+//   h : 높이. 바닥 0, 위로 +
+// 화면에는 "안쪽일수록 위에" 그려집니다: 화면y = 바닥선(z) - h
+//
+// boxes : 바닥에 놓인 상자. 옆으로 못 지나가고, 위에 올라설 수 있음
+//   { x, z, w(가로), d(깊이), h(높이) }  ← x, z는 왼쪽 안쪽 모서리
+// 층마다 이 목록만 바꾸면 다른 전투장이 됩니다.
 // =====================================================================
 G.Stage = (function () {
-  const GY = G.CFG.GROUND_Y;
+  const CFG = G.CFG;
+  const NEAR_Y = CFG.GROUND_Y;      // 가장 가까운 바닥선의 화면 높이
+  const DEPTH = CFG.DEPTH;          // 깊이 범위
+  const STEP_UP = 6;                // 이 높이 이하 턱은 그냥 걸어서 올라감
 
   const stage = {
-    platforms: [
-      { x: 110, y: 165, w: 150 },
-      { x: 530, y: 188, w: 150 },
-      { x: 745, y: 122, w: 135 },
-    ],
-    solids: [
-      { x: 370, y: GY - 42, w: 84, h: 42 },
+    boxes: [
+      { x: 360, z: 34, w: 80,  d: 34, h: 42 },   // 낮은 바위
+      { x: 470, z: 0,  w: 130, d: 30, h: 140 },  // 높은 기둥 (더블 점프 또는 바위 밟고)
+      { x: 720, z: 46, w: 70,  d: 30, h: 60 },   // 상자
     ],
   };
 
-  // 캐릭터를 vx, vy로 움직이고 부딪히면 멈춤. 착지하면 onGround = true
-  // body = { x, y(발), vx, vy, halfWidth, height, dropTimer }
-  function move(b, dt) {
-    const hw = b.halfWidth, h = b.height, W = G.CFG.ARENA_W;
+  // 깊이 z에서 바닥(h=0)의 화면 y
+  function floorY(z) { return NEAR_Y - (DEPTH - z); }
+  function screenY(z, h) { return floorY(z) - h; }
 
-    // --- 가로 이동 ---
-    b.x += b.vx * dt;
-    for (const s of stage.solids) {
-      const vOverlap = b.y > s.y + 0.5 && b.y - h < s.y + s.h;
-      if (!vOverlap) continue;
-      if (b.x + hw > s.x && b.x - hw < s.x + s.w) {
-        if (b.x < s.x + s.w / 2) b.x = s.x - hw; else b.x = s.x + s.w + hw;
-        b.vx = 0;
-      }
-    }
-    if (b.x < hw) { b.x = hw; b.vx = 0; }
-    if (b.x > W - hw) { b.x = W - hw; b.vx = 0; }
-
-    // --- 세로 이동 ---
-    const prevY = b.y;
-    b.y += b.vy * dt;
-    let landed = false;
-
-    if (b.vy >= 0) {
-      let top = GY;
-      const tops = stage.solids.map(s => ({ x: s.x, y: s.y, w: s.w }));
-      if (!(b.dropTimer > 0)) tops.push(...stage.platforms);
-      for (const p of tops) {
-        const xOverlap = b.x + hw > p.x && b.x - hw < p.x + p.w;
-        if (xOverlap && prevY <= p.y + 0.01 && b.y >= p.y && p.y < top) top = p.y;
-      }
-      if (b.y >= top) { b.y = top; b.vy = 0; landed = true; }
-    } else {
-      // 머리 부딪힘 (장애물 아래쪽)
-      for (const s of stage.solids) {
-        const xOverlap = b.x + hw > s.x && b.x - hw < s.x + s.w;
-        const bottom = s.y + s.h;
-        if (xOverlap && prevY - h >= bottom && b.y - h < bottom) { b.y = bottom + h; b.vy = 0; }
-      }
-    }
-    return landed;
+  // 몸(가로 hw, 깊이 hd)이 상자 바닥 면적과 겹치는가
+  function footOverlap(b, x, z, hw, hd) {
+    return x + hw > b.x && x - hw < b.x + b.w && z + hd > b.z && z - hd < b.z + b.d;
   }
 
-  // 지금 서 있는 곳이 통과 발판인가 (아래로 내려오기 가능 여부)
-  function onPlatform(b) {
-    return stage.platforms.some(p => Math.abs(b.y - p.y) < 0.5 && b.x + b.halfWidth > p.x && b.x - b.halfWidth < p.x + p.w);
-  }
-
-  // x 위치에서 y보다 아래쪽에 있는 가장 가까운 바닥 높이 (그림자 위치용)
-  function surfaceBelow(x, y) {
-    let top = GY;
-    for (const p of [...stage.platforms, ...stage.solids]) {
-      if (x > p.x && x < p.x + p.w && p.y >= y - 0.5 && p.y < top) top = p.y;
+  // (x, z)에 서 있을 때 발밑 높이 (가장 높은 상자 윗면, 없으면 0)
+  // maxH보다 높은 상자는 무시 (몸보다 위에 있는 건 발판이 아님)
+  function support(x, z, hw, hd, maxH) {
+    let top = 0;
+    for (const b of stage.boxes) {
+      if (b.h <= maxH + STEP_UP && b.h > top && footOverlap(b, x, z, hw, hd)) top = b.h;
     }
     return top;
   }
 
-  // ---------- 그리기 (임시 도형, 2단계에서 일러스트로 교체) ----------
-  function draw(ctx) {
-    for (const p of stage.platforms) {
-      ctx.fillStyle = '#3a3246';
-      ctx.fillRect(p.x, p.y, p.w, 10);
-      ctx.fillStyle = '#5c5070';
-      ctx.fillRect(p.x, p.y, p.w, 3);
-      // 받침대
-      ctx.fillStyle = '#251f2e';
-      ctx.fillRect(p.x + 10, p.y + 10, 8, 14);
-      ctx.fillRect(p.x + p.w - 18, p.y + 10, 8, 14);
+  // 캐릭터 이동 + 충돌. body = { x, z, h, vx, vz, vh, halfWidth, halfDepth }
+  // 착지해 있으면 true
+  function move(c, dt) {
+    const hw = c.halfWidth, hd = c.halfDepth;
+
+    // 가로
+    let nx = c.x + c.vx * dt;
+    for (const b of stage.boxes) {
+      if (c.h < b.h - STEP_UP && footOverlap(b, nx, c.z, hw, hd)) {
+        nx = c.x < b.x + b.w / 2 ? b.x - hw : b.x + b.w + hw;
+        c.vx = 0;
+      }
     }
-    for (const s of stage.solids) {
-      ctx.fillStyle = '#3d3449';
-      ctx.fillRect(s.x, s.y, s.w, s.h);
-      ctx.fillStyle = '#5c5070';
-      ctx.fillRect(s.x, s.y, s.w, 3);
-      ctx.strokeStyle = '#231d2b';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(s.x + 0.75, s.y + 0.75, s.w - 1.5, s.h - 1.5);
-      ctx.beginPath();
-      ctx.moveTo(s.x + s.w * 0.45, s.y + 3); ctx.lineTo(s.x + s.w * 0.4, s.y + s.h);
-      ctx.stroke();
+    c.x = Math.max(hw, Math.min(CFG.ARENA_W - hw, nx));
+
+    // 깊이
+    let nz = c.z + c.vz * dt;
+    for (const b of stage.boxes) {
+      if (c.h < b.h - STEP_UP && footOverlap(b, c.x, nz, hw, hd)) {
+        nz = c.z < b.z + b.d / 2 ? b.z - hd : b.z + b.d + hd;
+        c.vz = 0;
+      }
     }
+    c.z = Math.max(hd, Math.min(DEPTH, nz));
+
+    // 높이
+    const floor = support(c.x, c.z, hw, hd, c.h);
+    c.h += c.vh * dt;
+    if (c.h <= floor && c.vh <= 0) { c.h = floor; c.vh = 0; return true; }
+    if (c.h < floor) c.h = floor;   // 낮은 턱은 걸어서 올라감
+    return false;
   }
 
-  return { data: stage, move, onPlatform, surfaceBelow, draw };
+  // ---------- 그리기 (임시 도형, 2단계에서 일러스트로 교체) ----------
+  // 바닥 띠 (월드 좌표, 카메라 적용된 상태에서 호출)
+  function drawFloor(ctx) {
+    const W = CFG.ARENA_W, far = floorY(0);
+    // 바닥 윗면 (깊이가 있는 띠)
+    const g = ctx.createLinearGradient(0, far, 0, NEAR_Y);
+    g.addColorStop(0, '#231e2c');
+    g.addColorStop(1, '#342c40');
+    ctx.fillStyle = g;
+    ctx.fillRect(-200, far, W + 400, NEAR_Y - far);
+    // 돌바닥 줄눈
+    ctx.strokeStyle = 'rgba(0,0,0,.25)';
+    ctx.lineWidth = 1;
+    for (let z = 0; z <= DEPTH; z += 28) {
+      ctx.beginPath(); ctx.moveTo(-200, floorY(z)); ctx.lineTo(W + 200, floorY(z)); ctx.stroke();
+    }
+    for (let x = 0; x < W; x += 64) {
+      ctx.beginPath(); ctx.moveTo(x, far); ctx.lineTo(x - 12, NEAR_Y); ctx.stroke();
+    }
+    // 앞쪽 단면
+    ctx.fillStyle = '#1b1622';
+    ctx.fillRect(-200, NEAR_Y, W + 400, CFG.VIEW_H - NEAR_Y);
+    ctx.fillStyle = '#4a4058';
+    ctx.fillRect(-200, NEAR_Y, W + 400, 2);
+    // 안쪽 벽 아랫부분
+    ctx.fillStyle = '#4a4058';
+    ctx.fillRect(-200, far - 2, W + 400, 2);
+    // 양쪽 끝 벽
+    ctx.fillStyle = '#0f0c15';
+    ctx.fillRect(-200, 0, 200, CFG.VIEW_H);
+    ctx.fillRect(W, 0, 200, CFG.VIEW_H);
+  }
+
+  function drawBox(ctx, b) {
+    const topY = floorY(b.z) - b.h, frontTop = floorY(b.z + b.d) - b.h, frontBottom = floorY(b.z + b.d);
+    ctx.fillStyle = '#4f4560';                       // 윗면
+    ctx.fillRect(b.x, topY, b.w, frontTop - topY);
+    ctx.fillStyle = '#6a5d7e';
+    ctx.fillRect(b.x, frontTop - 2, b.w, 2);         // 모서리 하이라이트
+    ctx.fillStyle = '#352d42';                       // 앞면
+    ctx.fillRect(b.x, frontTop, b.w, frontBottom - frontTop);
+    ctx.strokeStyle = '#1d1825';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(b.x + 0.75, topY + 0.75, b.w - 1.5, frontBottom - topY - 1.5);
+    ctx.beginPath();
+    ctx.moveTo(b.x + b.w * 0.55, frontTop); ctx.lineTo(b.x + b.w * 0.45, frontBottom);
+    ctx.stroke();
+  }
+
+  // 깊이 정렬용 목록: 상자는 안쪽 모서리(z) 기준
+  function drawables() {
+    return stage.boxes.map(b => ({ key: b.z, draw: ctx => drawBox(ctx, b) }));
+  }
+
+  return { data: stage, DEPTH, floorY, screenY, support, move, drawFloor, drawables };
 })();
