@@ -11,6 +11,8 @@
   let camX = 0;
 
   const player = G.Player.create(160);
+  G.Combat.addDummy(300);   // 훈련용 허수아비 (1-3단계에서 몬스터로 교체)
+  G.Combat.addDummy(905);
 
   // ---------- 화면 크기 맞추기 ----------
   function resize() {
@@ -115,9 +117,11 @@
     ctx.fillStyle = fps >= 55 ? '#7fffb0' : '#ff8a5a';
     const lines = [
       `FPS ${fps.toFixed(0)}`,
-      `state ${p.state}`,
+      `state ${p.state}${p.atk ? ' / ' + p.atk.phase : ''}`,
       `x ${p.x.toFixed(0)}  vx ${p.vx.toFixed(0)}  vy ${p.vy.toFixed(0)}`,
-      `ground ${p.onGround}`,
+      `ground ${p.onGround}  stick ${G.Input.axis.x.toFixed(1)},${G.Input.axis.y.toFixed(1)}`,
+      `dash cd ${p.dashCd.toFixed(2)}  무적 ${p.iframe > 0 ? 'ON' : '-'}`,
+      `허수아비 누적 피해 ${G.Combat.targets.map(t => t.total).join(' / ')}`,
     ];
     lines.forEach((t, i) => ctx.fillText(t, 12 * s, (40 + i * 14) * s));
     ctx.restore();
@@ -133,14 +137,23 @@
     if (dt > 0.1) dt = 0.1; // 탭 전환 후 돌아왔을 때 순간이동 방지
     fps += (1 / Math.max(dt, 0.001) - fps) * 0.05;
 
-    // 물리: 고정 간격으로 여러 번 계산
-    acc += dt;
-    while (acc >= CFG.STEP) {
-      G.Player.step(player, CFG.STEP);
-      G.Input.endStep();
-      acc -= CFG.STEP;
+    // 타격 정지 중에는 캐릭터가 멈춤 (입력은 기억해 둠)
+    const fx = G.FX.state;
+    if (fx.hitstop > 0) {
+      fx.hitstop = Math.max(0, fx.hitstop - dt);
+    } else {
+      // 물리: 고정 간격으로 여러 번 계산
+      acc += dt;
+      while (acc >= CFG.STEP) {
+        G.Player.step(player, CFG.STEP);
+        G.Input.endStep();
+        acc -= CFG.STEP;
+        if (fx.hitstop > 0) { acc = 0; break; }  // 이번 계산에서 맞혔으면 바로 멈춤
+      }
+      G.Player.animate(player, dt);
+      G.Combat.update(dt);
     }
-    G.Player.animate(player, dt);
+    G.FX.update(dt);
     updateCamera(dt);
 
     // 그리기
@@ -148,7 +161,11 @@
     drawBackground();
     ctx.setTransform(scale, 0, 0, scale, -camX * scale, 0);
     drawArena();
+    G.Stage.draw(ctx);
+    G.Combat.drawTargets(ctx);
     G.Player.draw(ctx, player);
+    G.FX.drawFront(ctx);
+    if (CFG.debug) G.Combat.drawDebug(ctx, player);
     if (CFG.debug) drawDebug();
 
     requestAnimationFrame(frame);

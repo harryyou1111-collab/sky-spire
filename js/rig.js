@@ -103,10 +103,12 @@ G.Rig = (function () {
     this.blendDur = G.CFG.anim.blend;
     this.pose = {};
   }
-  Animator.prototype.play = function (name, restart) {
+  // blend: 이번 전환에만 쓸 섞는 시간 (공격처럼 빠른 동작은 짧게)
+  Animator.prototype.play = function (name, restart, blend) {
     if (this.name === name && !restart) return;
     this.from = this.pose;
     this.blendT = 0;
+    this.blendDur = blend != null ? Math.max(0.001, blend) : G.CFG.anim.blend;
     this.name = name;
     this.time = 0;
   };

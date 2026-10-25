@@ -27,6 +27,32 @@ G.CFG = {
     jumpBuffer: 0.12, // 착지 직전에 누른 점프를 기억하는 시간
     landTime: 0.10,   // 착지 순간 무릎 굽히는 시간
     halfWidth: 14,    // 충돌용 몸 반폭
+    height: 112,      // 충돌용 몸 높이
+    dropTime: 0.22,   // 발판에서 아래로 내려올 때 발판을 무시하는 시간
+  },
+
+  // ---------- 회피 대시 ----------
+  dash: {
+    speed: 640,       // 대시 속도
+    time: 0.17,       // 대시 지속 시간
+    iframe: 0.22,     // 무적 시간 (대시보다 살짝 길게)
+    cooldown: 0.38,   // 다시 쓸 수 있을 때까지
+    upKeep: 0.35,     // 위로 대시가 끝난 뒤 남는 상승 속도 비율
+    ghostEvery: 0.03, // 잔상 간격
+  },
+
+  // ---------- 공격 ----------
+  // startup: 휘두르기 전 준비, active: 판정이 있는 시간, recovery: 휘두른 뒤 빈틈
+  // hitbox: [앞쪽 거리, 위아래 위치(발 기준, -가 위), 가로, 세로]
+  // hitstop: 맞았을 때 화면이 멈추는 시간 (타격감)
+  attack: {
+    buffer: 0.18,     // 공격 중에 미리 누른 다음 공격을 기억하는 시간
+    chain: 0.22,      // 공격이 끝난 뒤 이 시간 안에 누르면 다음 콤보로 이어짐
+    side1: { startup: 0.07, active: 0.08, recovery: 0.16, dmg: 8,  lunge: 140, hitbox: [16, -100, 66, 74],  hitstop: 0.045 },
+    side2: { startup: 0.07, active: 0.08, recovery: 0.16, dmg: 8,  lunge: 140, hitbox: [12, -118, 68, 92],  hitstop: 0.045 },
+    side3: { startup: 0.14, active: 0.10, recovery: 0.30, dmg: 16, lunge: 230, hitbox: [6, -128, 86, 128],  hitstop: 0.09 },
+    up:    { startup: 0.07, active: 0.10, recovery: 0.18, dmg: 9,  lunge: 0,   hitbox: [-30, -178, 70, 90], hitstop: 0.05 },
+    down:  { startup: 0.05, active: 0.60, recovery: 0.10, dmg: 10, lunge: 0,   hitbox: [-24, -14, 50, 52],  hitstop: 0.05, pogo: 660 },
   },
 
   stick: {
