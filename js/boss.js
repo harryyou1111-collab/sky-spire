@@ -24,6 +24,7 @@ G.Boss = (function () {
     timer: 0,                  // 다음 공격까지 남은 시간
     time: 0, flash: 0, sink: 0, lean: 0,
     shift: 0,                  // 몸통이 옆으로 움직인 거리 (멀리 있는 플레이어를 칠 때 상체를 그쪽으로 숙임)
+    pose: null, poseK: 0,      // 자세 그림 (예: 피리 불기). poseK 0 = 파츠 리그, 1 = 자세 그림
     hands: [],
     marks: [],                 // 바닥 예고 원과 균열
     pattern: null,             // 진행 중인 몸 전체 패턴 (flute, vines)
@@ -61,7 +62,7 @@ G.Boss = (function () {
     boss.hp = boss.maxHp = def.hp;
     boss.mode = 'fight';
     boss.timer = 1.5;
-    boss.time = 0; boss.flash = 0; boss.sink = 0; boss.lean = 0; boss.shift = 0;
+    boss.time = 0; boss.flash = 0; boss.sink = 0; boss.lean = 0; boss.shift = 0; boss.pose = null; boss.poseK = 0;
     boss.x = G.CFG.ARENA_W / 2;
     boss.y = S().floorY(0) + def.body.hipBelowEdge;
     boss.anim = new G.Rig.Animator(CLIPS);
@@ -185,6 +186,17 @@ G.Boss = (function () {
     boss.shift += (shiftTarget - boss.shift) * Math.min(1, dt * 3);
     const leanTarget = boss.shift * 0.09;
     boss.lean += (leanTarget - boss.lean) * Math.min(1, dt * 4);
+
+    // 자세 그림 전환: 패턴에 맞는 자세 그림이 있으면 부드럽게 바꿔 끼움
+    // 패턴 중: 그 패턴의 자세 그림 / 공격하지 않고 쉴 때: 'idle' 자세 그림 (그림 파일이 있을 때만)
+    const allRest = boss.hands.every(h => h.state === 'rest');
+    let want = null;
+    if (boss.pattern && def.poses && def.poses[boss.pattern.kind]) want = boss.pattern.kind;
+    else if (allRest && !boss.pattern && boss.mode === 'fight' && def.poses && def.poses.idle && G.Render.getImg(def.poses.idle.img)) want = 'idle';
+    if (want && boss.pose && boss.pose !== want && boss.poseK > 0) want = boss.pose;   // 다른 자세로 바로 넘어가지 않고 일단 리그로 돌아옴
+    if (want) boss.pose = want;
+    boss.poseK = Math.max(0, Math.min(1, boss.poseK + (want ? 1 : -1) * dt * 7));
+    if (!want && boss.poseK === 0) boss.pose = null;
 
     boss.anim.play('idle');
     boss.anim.update(dt);
@@ -394,6 +406,14 @@ G.Boss = (function () {
   }
 
   // ---------- 그리기 ----------
+  // 자세 그림 위치: 그림 속 기준점(anchor, 픽셀)을 보스 목 위치에 맞춤
+  function poseRect() {
+    const P = def.poses[boss.pose], im = G.Render.getImg(P.img);
+    if (!im) return null;
+    const k = P.width / im.naturalWidth;
+    const neckX = boss.x + boss.shift, neckY = boss.y + boss.joints.torso.o.y - def.body.torso + (P.offsetY || 0);
+    return { im, k, x: neckX - P.anchor[0] * k, y: neckY - P.anchor[1] * k, w: P.width, h: im.naturalHeight * k };
+  }
   // 낭떠러지 뒤에 있는 몸통·머리 (바닥보다 먼저)
   function drawBack(ctx) {
     if (!boss.joints) return;
@@ -406,8 +426,17 @@ G.Boss = (function () {
     ctx.fillRect(boss.x - 360, boss.y - 520, 720, 520);
     skin.head.pulse = 0.65 + 0.35 * Math.sin(boss.time * 2.2);
     ctx.save();
-    if (boss.mode !== 'fight') ctx.globalAlpha = Math.max(0, 1 - boss.sink / 200);
-    G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x + boss.shift, boss.y, 1);
+    const fade = boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 200) : 1;
+    const pr = boss.pose && boss.poseK > 0 ? poseRect() : null;
+    const rigK = pr ? 1 - boss.poseK : 1;
+    if (rigK > 0) {
+      ctx.globalAlpha = fade * rigK;
+      G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x + boss.shift, boss.y, 1);
+    }
+    if (pr) {                // 자세 그림 (피리 불기 등)
+      ctx.globalAlpha = fade * boss.poseK;
+      ctx.drawImage(pr.im, pr.x, pr.y, pr.w, pr.h);
+    }
     if (boss.flash > 0) {   // 맞을 때 몸 전체가 번쩍
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.35;
@@ -422,13 +451,15 @@ G.Boss = (function () {
     for (const m of boss.marks) drawMark(ctx, m);
     for (const L of boss.lanes) if (L.state === 'warn') drawLaneWarn(ctx, L);
     for (const r of boss.rings) drawRing(ctx, r);
+    const rigK = boss.pose ? 1 - boss.poseK : 1;     // 자세 그림이 나오는 동안은 팔 파츠를 숨김
     for (const h of boss.hands) {
       const r = def.fist.r * (1 + Math.min(1, h.h / 200));
-      G.Render.shadow(ctx, h.x, S().floorY(h.z), r * 1.3, 0.55 - Math.min(0.35, h.h / 500));
+      G.Render.shadow(ctx, h.x, S().screenY(h.z, h.base && h.state !== 'rest' && h.state !== 'back' ? h.base : 0), r * 1.3, (0.55 - Math.min(0.35, h.h / 500)) * rigK);
     }
     ctx.save();
-    if (boss.mode !== 'fight') ctx.globalAlpha = Math.max(0, 1 - boss.sink / 200);
-    G.Render.drawRig(ctx, boss.joints, def.skin, FRONT_ORDER, boss.x + boss.shift, boss.y, 1);
+    ctx.globalAlpha = (boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 200) : 1) * rigK;
+    if (rigK > 0) G.Render.drawRig(ctx, boss.joints, def.skin, FRONT_ORDER, boss.x + boss.shift, boss.y, 1);
+    ctx.globalAlpha = 1;
     if (boss.pattern && boss.pattern.kind === 'flute') drawFlute(ctx, boss.pattern);
     // 때릴 수 있는 손은 테두리로 표시
     for (const h of boss.hands) {
@@ -445,7 +476,14 @@ G.Boss = (function () {
   function drawFlute(ctx, P) {
     // 입 위치: 머리 뼈의 아래쪽 (목에서 머리 길이의 15%)
     const hd = boss.joints.head, m = 0.15 * hd.len;
-    const cx = boss.x + boss.shift + hd.o.x - Math.sin(hd.a) * m, cy = boss.y + hd.o.y + Math.cos(hd.a) * m;
+    let cx = boss.x + boss.shift + hd.o.x - Math.sin(hd.a) * m, cy = boss.y + hd.o.y + Math.cos(hd.a) * m;
+    const pose = def.poses && def.poses.flute;
+    const pr = pose && boss.pose === 'flute' ? poseRect() : null;
+    if (pr) {                // 피리 부는 그림이 있으면: 그림 속 피리 끝에서 기운이 모임
+      cx = pr.x + pose.glow[0] * pr.k; cy = pr.y + pose.glow[1] * pr.k;
+      if (P.t < P.p.telegraph) fluteGlow(ctx, cx, cy, P.t / P.p.telegraph);
+      return;
+    }
     const k = Math.min(1, P.t / 0.3);
     ctx.save();
     ctx.globalAlpha = k;
@@ -456,16 +494,18 @@ G.Boss = (function () {
       ctx.strokeStyle = '#2a1e12'; ctx.lineWidth = 1.5; ctx.strokeRect(x, cy - 10, 10, len);
     }
     ctx.fillStyle = '#5e8a3a'; ctx.fillRect(cx - 46, cy + 6, 92, 7);       // 묶은 덩굴
-    // 숨 들이쉬는 동안 초록 기운이 모임
-    if (P.t < P.p.telegraph) {
-      const u = P.t / P.p.telegraph;
-      ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30 + 60 * u);
-      g.addColorStop(0, `rgba(170, 255, 140, ${0.5 * u})`);
-      g.addColorStop(1, 'rgba(170, 255, 140, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(cx, cy, 30 + 60 * u, 0, Math.PI * 2); ctx.fill();
-    }
+    ctx.restore();
+    if (P.t < P.p.telegraph) fluteGlow(ctx, cx, cy, P.t / P.p.telegraph);
+  }
+  // 숨 들이쉬는 동안 초록 기운이 모임
+  function fluteGlow(ctx, cx, cy, u) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30 + 60 * u);
+    g.addColorStop(0, `rgba(170, 255, 140, ${0.5 * u})`);
+    g.addColorStop(1, 'rgba(170, 255, 140, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, 30 + 60 * u, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
 

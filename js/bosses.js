@@ -23,8 +23,8 @@ G.BossDefs = {
     // shoulderDrop: 몸통 꼭대기(목)에서 어깨 관절까지 내려온 거리 — 그림의 어깨 위치에 맞춤
     // maxShift: 멀리 있는 플레이어를 칠 때 상체가 그쪽으로 옮겨가는 최대 거리 (팔만 늘어나 보이지 않게)
     body: { torso: 180, head: 123, armUp: 108, armLow: 116, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48, maxShift: 90 },
-    // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 팔꿈치를 살짝 굽혀 바닥을 짚는 자세
-    restHands: [{ dx: -225, z: 70 }, { dx: 225, z: 70 }],
+    // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 전투장 끝(낭떠러지 가장자리)에 팔을 걸치고 내려다보는 자세
+    restHands: [{ dx: -150, z: 26 }, { dx: 150, z: 26 }],
     fist: { r: 34 },                                         // 주먹 크기 (그림자·판정용)
 
     skin: {
@@ -40,6 +40,14 @@ G.BossDefs = {
                   img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.25, offset: [0, -12], mirror: true },
       armR_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
                   img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.25, offset: [0, -12] },
+    },
+
+    // 자세 그림: 패턴 동안 파츠 리그 대신 통째로 보여주는 그림
+    //   width: 게임 속 가로 크기, anchor: 그림 속 목 위치(픽셀), glow: 기운이 모이는 위치(픽셀)
+    poses: {
+      flute: { img: 'assets/bosses/pan/pose_flute.png', width: 344, anchor: [490, 330], offsetY: 6, glow: [20, 395] },
+      // 쉬는 자세 그림 (아직 없음 — 파일을 넣으면 자동으로 사용. anchor는 그림을 받은 뒤 맞춤)
+      idle:  { img: 'assets/bosses/pan/pose_idle.png', width: 344, anchor: [410, 330] },
     },
 
     theme: {
