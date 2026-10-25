@@ -23,6 +23,7 @@ G.Boss = (function () {
     mode: 'fight',             // fight / dying / dead
     timer: 0,                  // 다음 공격까지 남은 시간
     time: 0, flash: 0, sink: 0, lean: 0,
+    shift: 0,                  // 몸통이 옆으로 움직인 거리 (멀리 있는 플레이어를 칠 때 상체를 그쪽으로 숙임)
     hands: [],
     marks: [],                 // 바닥 예고 원과 균열
     pattern: null,             // 진행 중인 몸 전체 패턴 (flute, vines)
@@ -60,7 +61,7 @@ G.Boss = (function () {
     boss.hp = boss.maxHp = def.hp;
     boss.mode = 'fight';
     boss.timer = 1.5;
-    boss.time = 0; boss.flash = 0; boss.sink = 0; boss.lean = 0;
+    boss.time = 0; boss.flash = 0; boss.sink = 0; boss.lean = 0; boss.shift = 0;
     boss.x = G.CFG.ARENA_W / 2;
     boss.y = S().floorY(0) + def.body.hipBelowEdge;
     boss.anim = new G.Rig.Animator(CLIPS);
@@ -93,13 +94,18 @@ G.Boss = (function () {
   const slamParams = () => params('slam');
 
   // ---------- 손이 닿을 수 있는 위치로 목표 보정 ----------
-  function shoulderScreen(side) {
+  // 목표 x를 칠 때 몸통이 옆으로 움직일 거리 (최대 maxShift)
+  function shiftFor(x) {
+    const m = def.body.maxShift || 0;
+    return Math.max(-m, Math.min(m, (x - boss.x) * 0.4));
+  }
+  function shoulderScreen(side, shift) {
     const j = boss.joints || G.Rig.compute(SKELETON, boss.anim.pose, false);
     const s = j[side === 'L' ? 'armL_up' : 'armR_up'].o;
-    return { x: boss.x + s.x, y: boss.y + s.y };
+    return { x: boss.x + shift + s.x, y: boss.y + s.y };
   }
   function reachable(side, x, z) {
-    const sh = shoulderScreen(side), b = def.body;
+    const sh = shoulderScreen(side, shiftFor(x)), b = def.body;
     const tx = x, ty = S().screenY(z, def.fist.r);
     return Math.hypot(tx - sh.x, ty - sh.y) < (b.armUp + b.armLow) * 0.95;
   }
@@ -121,7 +127,8 @@ G.Boss = (function () {
     hand.params = p;
     hand.from = { x: hand.x, z: hand.z, h: hand.h };
     hand.aim = clampTarget(hand.side, player.x, player.z);
-    hand.mark = { x: hand.aim.x, z: hand.aim.z, r: p.radius, kind: 'warn', k: 0 };
+    hand.base = G.Stage.support(hand.aim.x, hand.aim.z, 9999);   // 기둥 위면 기둥 윗면을 침
+    hand.mark = { x: hand.aim.x, z: hand.aim.z, r: p.radius, kind: 'warn', k: 0, hand };
     boss.marks.push(hand.mark);
   }
 
@@ -170,9 +177,13 @@ G.Boss = (function () {
       }
     }
 
-    // 손을 드는 쪽으로 몸을 살짝 기울임
-    let leanTarget = 0;
-    for (const h of boss.hands) if (h.state === 'raise' || h.state === 'drop') leanTarget += (h.side === 'L' ? 1 : -1) * 7;
+    // 공격하는 손의 목표 쪽으로 상체를 옮기고 기울임 (팔만 늘어나 보이지 않게)
+    let shiftTarget = 0;
+    for (const h of boss.hands) {
+      if ((h.state === 'raise' && h.t >= 0) || h.state === 'drop' || h.state === 'stuck') shiftTarget = shiftFor(h.aim.x);
+    }
+    boss.shift += (shiftTarget - boss.shift) * Math.min(1, dt * 3);
+    const leanTarget = boss.shift * 0.09;
     boss.lean += (leanTarget - boss.lean) * Math.min(1, dt * 4);
 
     boss.anim.play('idle');
@@ -186,11 +197,12 @@ G.Boss = (function () {
     // 팔: 손 위치에 맞춰 IK
     let j = G.Rig.compute(SKELETON, pose, false);
     const torsoWorld = j.torso.a;
+    const bx = boss.x + boss.shift;     // 몸통 중심 x (옆으로 움직인 만큼)
     for (const h of boss.hands) {
       const up = h.side === 'L' ? 'armL_up' : 'armR_up', low = h.side === 'L' ? 'armL_low' : 'armR_low';
       const sh = { x: j[up].o.x, y: j[up].o.y };
       const shakeX = h.shake > 0 ? (Math.random() - 0.5) * 4 : 0;
-      const tgt = { x: h.x - boss.x + shakeX, y: S().screenY(h.z, h.h + def.fist.r) - boss.y };
+      const tgt = { x: h.x - bx + shakeX, y: S().screenY(h.z, h.h + def.fist.r) - boss.y };
       const r = G.Rig.ik2(sh, tgt, def.body.armUp, def.body.armLow, h.side === 'L' ? -1 : 1);
       pose[up] = norm(r.a1 - torsoWorld - Math.PI) / D2R;
       pose[low] = norm(r.a2 - r.a1) / D2R;
@@ -222,18 +234,22 @@ G.Boss = (function () {
           const a = clampTarget(h.side, player.x, player.z);
           h.aim.x += (a.x - h.aim.x) * Math.min(1, dt * 6);
           h.aim.z += (a.z - h.aim.z) * Math.min(1, dt * 6);
+          h.base = G.Stage.support(h.aim.x, h.aim.z, 9999);
         }
         h.mark.x = h.aim.x; h.mark.z = h.aim.z; h.mark.k = u;
-        const e = ease(Math.min(1, u * 1.4));
-        h.x = h.from.x + (h.aim.x - h.from.x) * e;
-        h.z = h.from.z + (h.aim.z - h.from.z) * e;
-        h.h = h.from.h + (p.lift - h.from.h) * e;
+        // 1) 먼저 거의 제자리에서 크게 들어 올림 → 2) 공중에서 목표 위로 이동 → 3) 살짝 더 치켜들며 힘을 모음
+        const up = ease(Math.min(1, u / 0.35));
+        const move = ease(Math.max(0, Math.min(1, (u - 0.25) / 0.5)));
+        const windup = Math.max(0, (u - 0.75) / 0.25);
+        h.x = h.from.x + (h.aim.x - h.from.x) * move;
+        h.z = h.from.z + (h.aim.z - h.from.z) * move;
+        h.h = h.from.h + (p.lift * 0.85 - h.from.h) * up + (p.lift * 0.15 + h.base) * move + p.lift * 0.12 * windup;
         if (u >= 1) { h.state = 'drop'; h.t = 0; }
         break;
       }
       case 'drop': {
         const u = Math.min(1, h.t / p.drop);
-        h.h = p.lift * (1 - u * u);               // 점점 빨라지며 떨어짐
+        h.h = h.base + (p.lift * 1.12) * (1 - u * u);   // 점점 빨라지며 떨어짐 (기둥 위면 윗면까지)
         if (u >= 1) impact(h, player);
         break;
       }
@@ -244,6 +260,9 @@ G.Boss = (function () {
         }
         break;
       case 'ctrl':                                 // 패턴이 위치를 직접 정함
+        break;
+      case 'rest':                                 // 숨쉬기에 맞춰 손가락 끝이 살짝 들썩임
+        h.h = 2 + 2 * Math.sin(boss.time * 1.96 + (h.side === 'L' ? 0 : 1.3));
         break;
       case 'back': {
         const u = Math.min(1, h.t / p.recover), e = ease(u);
@@ -260,15 +279,15 @@ G.Boss = (function () {
 
   function impact(h, player) {
     const p = h.params;
-    h.state = 'stuck'; h.t = 0; h.h = 0;
+    h.state = 'stuck'; h.t = 0; h.h = h.base || 0;
     h.target.active = true;
     boss.marks = boss.marks.filter(m => m !== h.mark);
-    boss.marks.push({ x: h.x, z: h.z, r: p.radius, kind: 'crack', k: 0, life: p.stuck + 0.4 });
+    boss.marks.push({ x: h.x, z: h.z, r: p.radius, kind: 'crack', k: 0, life: p.stuck + 0.4, base: h.base || 0 });
     G.FX.shake(9, 0.25);
     G.FX.ring(h.x, h.z, p.radius);
     // 범위 안의 플레이어 피해 (깊이는 납작한 타원)
     const dx = (player.x - h.x) / (p.radius + 10), dz = (player.z - h.z) / (p.radius * 0.55 + 8);
-    if (dx * dx + dz * dz < 1 && player.h < 60) G.Combat.hurtPlayer(player, p.dmg, h.x, h.z);
+    if (dx * dx + dz * dz < 1 && Math.abs(player.h - (h.base || 0)) < 60) G.Combat.hurtPlayer(player, p.dmg, h.x, h.z);
   }
 
   // ---------- 손을 패턴이 직접 움직일 때 ----------
@@ -388,11 +407,11 @@ G.Boss = (function () {
     skin.head.pulse = 0.65 + 0.35 * Math.sin(boss.time * 2.2);
     ctx.save();
     if (boss.mode !== 'fight') ctx.globalAlpha = Math.max(0, 1 - boss.sink / 200);
-    G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x, boss.y, 1);
+    G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x + boss.shift, boss.y, 1);
     if (boss.flash > 0) {   // 맞을 때 몸 전체가 번쩍
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.35;
-      G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x, boss.y, 1);
+      G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x + boss.shift, boss.y, 1);
     }
     ctx.restore();
   }
@@ -409,7 +428,7 @@ G.Boss = (function () {
     }
     ctx.save();
     if (boss.mode !== 'fight') ctx.globalAlpha = Math.max(0, 1 - boss.sink / 200);
-    G.Render.drawRig(ctx, boss.joints, def.skin, FRONT_ORDER, boss.x, boss.y, 1);
+    G.Render.drawRig(ctx, boss.joints, def.skin, FRONT_ORDER, boss.x + boss.shift, boss.y, 1);
     if (boss.pattern && boss.pattern.kind === 'flute') drawFlute(ctx, boss.pattern);
     // 때릴 수 있는 손은 테두리로 표시
     for (const h of boss.hands) {
@@ -426,7 +445,7 @@ G.Boss = (function () {
   function drawFlute(ctx, P) {
     // 입 위치: 머리 뼈의 아래쪽 (목에서 머리 길이의 15%)
     const hd = boss.joints.head, m = 0.15 * hd.len;
-    const cx = boss.x + hd.o.x - Math.sin(hd.a) * m, cy = boss.y + hd.o.y + Math.cos(hd.a) * m;
+    const cx = boss.x + boss.shift + hd.o.x - Math.sin(hd.a) * m, cy = boss.y + hd.o.y + Math.cos(hd.a) * m;
     const k = Math.min(1, P.t / 0.3);
     ctx.save();
     ctx.globalAlpha = k;
@@ -498,7 +517,8 @@ G.Boss = (function () {
   }
 
   function drawMark(ctx, m) {
-    const y = S().floorY(m.z), rx = m.r, rz = m.r * 0.55;
+    const base = m.hand ? (m.hand.base || 0) : (m.base || 0);   // 기둥 위를 칠 때는 기둥 윗면에 표시
+    const y = S().screenY(m.z, base), rx = m.r, rz = m.r * 0.55;
     if (m.kind === 'warn') {
       ctx.save();
       ctx.fillStyle = `rgba(220, 40, 30, ${0.12 + 0.18 * m.k})`;

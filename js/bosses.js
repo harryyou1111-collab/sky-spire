@@ -21,9 +21,10 @@ G.BossDefs = {
     hp: 320,
 
     // shoulderDrop: 몸통 꼭대기(목)에서 어깨 관절까지 내려온 거리 — 그림의 어깨 위치에 맞춤
-    body: { torso: 180, head: 123, armUp: 134, armLow: 141, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48 },
-    // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 팔을 거의 곧게 뻗어 비스듬히 바닥을 짚는 자세가 되도록
-    restHands: [{ dx: -278, z: 72 }, { dx: 278, z: 72 }],
+    // maxShift: 멀리 있는 플레이어를 칠 때 상체가 그쪽으로 옮겨가는 최대 거리 (팔만 늘어나 보이지 않게)
+    body: { torso: 180, head: 123, armUp: 108, armLow: 116, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48, maxShift: 90 },
+    // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 팔꿈치를 살짝 굽혀 바닥을 짚는 자세
+    restHands: [{ dx: -225, z: 70 }, { dx: 225, z: 70 }],
     fist: { r: 34 },                                         // 주먹 크기 (그림자·판정용)
 
     skin: {
@@ -58,7 +59,7 @@ G.BossDefs = {
         weight: 2,         // 패턴이 뽑힐 확률 비중
         telegraph: 0.95,   // 예고 시간 (이 동안 피하면 됨)
         track: 0.6,        // 예고 시간 중 앞부분 이 비율 동안은 플레이어를 따라감
-        lift: 140,         // 손을 드는 높이
+        lift: 150,         // 손을 드는 높이
         drop: 0.12,        // 내려치는 시간
         stuck: 1.7,        // 손이 바닥에 박혀 있는 시간 (공격 기회)
         recover: 0.55,     // 손이 돌아가는 시간
