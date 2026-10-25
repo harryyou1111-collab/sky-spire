@@ -35,6 +35,27 @@ html, body {
 }
 #btn-debug.on { color: #7fffb0; border-color: #7fffb0; }
 
+/* ---------- 보스 체력 ---------- */
+#boss-bar {
+  position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%);
+  width: min(46vw, 420px);
+  pointer-events: none; text-align: center;
+}
+#boss-bar .name {
+  font-size: 13px; font-weight: 700; letter-spacing: 3px;
+  color: #f2d9a6; text-shadow: 0 1px 4px #000;
+}
+#boss-bar .track {
+  margin-top: 4px; height: 7px; border-radius: 4px;
+  background: rgba(0, 0, 0, .55); border: 1px solid rgba(242, 217, 166, .4);
+  overflow: hidden;
+}
+#boss-bar .fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, #b8462e, #f0a050);
+}
+
 /* ---------- 터치 버튼 ---------- */
 #controls { position: fixed; inset: 0; pointer-events: none; }
 .pad {

@@ -68,6 +68,68 @@ G.Render = (function () {
       ctx.quadraticCurveTo(s.r * 1.0, cy + s.r * 0.7, 3, cy + s.r * 0.2);
       ctx.fill();
     },
+    // ----- 보스(석상 골렘) 정면 도형 -----
+    // 이 좌표계에서 +y = 위쪽(목 방향), 좌우 대칭
+    golemTorso(ctx, len, s) {
+      const b = s.w1 / 2, t = s.w2 / 2;
+      ctx.beginPath();
+      ctx.moveTo(-b, -10);
+      ctx.lineTo(b, -10);
+      ctx.lineTo(t * 0.92, len - 28);
+      ctx.quadraticCurveTo(t * 1.05, len + 4, t * 0.55, len + 6);   // 둥근 어깨
+      ctx.lineTo(-t * 0.55, len + 6);
+      ctx.quadraticCurveTo(-t * 1.05, len + 4, -t * 0.92, len - 28);
+      ctx.closePath();
+      fillStroke(ctx, s, 3);
+      // 가슴 한가운데 빛나는 핵
+      const cy = len * 0.62, pulse = s.pulse || 1;
+      const g = ctx.createRadialGradient(0, cy, 2, 0, cy, 44);
+      g.addColorStop(0, `rgba(255, 220, 140, ${0.95 * pulse})`);
+      g.addColorStop(0.35, `rgba(255, 160, 60, ${0.6 * pulse})`);
+      g.addColorStop(1, 'rgba(255, 120, 40, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, cy, 44, 0, Math.PI * 2); ctx.fill();
+      // 핵에서 뻗어 나가는 빛나는 균열
+      ctx.strokeStyle = s.glow;
+      ctx.globalAlpha = 0.5 + 0.5 * pulse;
+      ctx.lineWidth = 2.5;
+      [[[0, cy], [-26, cy + 30], [-48, cy + 38], [-70, len - 6]],
+       [[0, cy], [22, cy - 26], [40, cy - 30], [52, 10]],
+       [[0, cy], [8, cy + 34], [-6, len]]].forEach(path => {
+        ctx.beginPath();
+        path.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+    },
+    golemHead(ctx, len, s) {
+      const w = s.r, h = len;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.8, 0);
+      ctx.lineTo(w * 0.8, 0);
+      ctx.lineTo(w, h * 0.55);
+      ctx.lineTo(w * 0.7, h);
+      ctx.lineTo(-w * 0.7, h);
+      ctx.lineTo(-w, h * 0.55);
+      ctx.closePath();
+      fillStroke(ctx, s, 3);
+      // 이마 그늘
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.fillRect(-w * 0.9, h * 0.42, w * 1.8, h * 0.14);
+      // 빛나는 두 눈
+      const pulse = s.pulse || 1;
+      ctx.save();
+      ctx.shadowColor = s.glow;
+      ctx.shadowBlur = 18 * pulse;
+      ctx.fillStyle = `rgba(255, 210, 120, ${0.7 + 0.3 * pulse})`;
+      ctx.fillRect(-w * 0.62, h * 0.34, w * 0.42, 7);
+      ctx.fillRect(w * 0.2, h * 0.34, w * 0.42, 7);
+      ctx.restore();
+      // 머리 균열
+      ctx.strokeStyle = 'rgba(0,0,0,.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(w * 0.3, h); ctx.lineTo(w * 0.1, h * 0.7); ctx.lineTo(w * 0.35, h * 0.58); ctx.stroke();
+    },
     sword(ctx, len, s) {
       const g = 6;              // 손잡이 길이
       ctx.fillStyle = s.grip;
@@ -89,10 +151,10 @@ G.Render = (function () {
     },
   };
 
-  function fillStroke(ctx, s) {
+  function fillStroke(ctx, s, width) {
     ctx.fillStyle = s.color;
     ctx.fill();
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = width || s.lineW || 1.6;
     ctx.strokeStyle = s.outline || '#0d0b12';
     ctx.stroke();
   }

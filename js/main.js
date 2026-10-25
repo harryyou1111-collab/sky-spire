@@ -11,9 +11,10 @@
   let camX = 0;
   let camY = 0;      // 높은 곳에 올라가면 화면이 위로 따라감 (0 또는 음수)
 
-  const player = G.Player.create(160, 80);
-  G.Combat.addDummy(270, 50);   // 훈련용 허수아비 (1-3단계에서 몬스터로 교체)
-  G.Combat.addDummy(905, 95);
+  const player = G.Player.create(300, 95);
+  G.Combat.addDummy(560, 100);  // 공격 확인용 허수아비 (1-3단계에서 보스 타격으로 교체)
+  G.Boss.place();
+  G.Boss.updateUI();
 
   // ---------- 화면 크기 맞추기 ----------
   function resize() {
@@ -37,45 +38,31 @@
   }
 
   // ---------- 임시 배경 (2단계에서 일러스트 배경으로 교체) ----------
+  // 보스가 주인공이므로 배경은 단순하게: 탑 꼭대기의 어두운 하늘 + 보스 뒤 큰 달빛
   function drawBackground() {
-    const H = CFG.VIEW_H, GY = CFG.GROUND_Y;
-    // 하늘 (탑 내부의 어두운 공간)
+    const H = CFG.VIEW_H;
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#120f1c');
-    sky.addColorStop(0.7, '#1f1a2b');
-    sky.addColorStop(1, '#16121e');
+    sky.addColorStop(0, '#0d0a16');
+    sky.addColorStop(0.55, '#231a2e');
+    sky.addColorStop(1, '#120e18');
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, viewW, H);
-
-    // 먼 기둥 (천천히 움직임 = 패럴랙스)
-    layer(0.3, 220, (x) => {
-      ctx.fillStyle = '#1b1726';
-      ctx.fillRect(x, 20, 46, GY - 20);
-      ctx.fillRect(x - 8, 20, 62, 10);
+    // 보스 뒤 달 (보스 위치와 맞춰서, 카메라보다 천천히 움직임)
+    const mx = CFG.ARENA_W / 2 - camX * 0.85, my = 150;
+    const g = ctx.createRadialGradient(mx, my, 20, mx, my, 260);
+    g.addColorStop(0, 'rgba(255, 214, 160, 0.30)');
+    g.addColorStop(0.4, 'rgba(200, 130, 120, 0.12)');
+    g.addColorStop(1, 'rgba(120, 80, 120, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, viewW, H);
+    ctx.fillStyle = 'rgba(255, 228, 190, 0.18)';
+    ctx.beginPath(); ctx.arc(mx, my, 120, 0, Math.PI * 2); ctx.fill();
+    // 멀리 보이는 부서진 탑 외벽 (양옆)
+    layer(0.4, 520, (x) => {
+      ctx.fillStyle = '#16111f';
+      ctx.fillRect(x, 120, 34, H);
+      ctx.fillRect(x + 60, 200, 22, H);
     });
-    // 가까운 아치
-    layer(0.6, 340, (x) => {
-      ctx.fillStyle = '#231e31';
-      ctx.fillRect(x, 60, 30, GY - 60);
-      ctx.fillRect(x + 150, 60, 30, GY - 60);
-      ctx.beginPath();
-      ctx.moveTo(x + 30, 110);
-      ctx.quadraticCurveTo(x + 105, 30, x + 150, 110);
-      ctx.lineTo(x + 150, 92);
-      ctx.quadraticCurveTo(x + 105, 12, x + 30, 92);
-      ctx.fill();
-    });
-    // 빛줄기
-    ctx.save();
-    ctx.globalAlpha = 0.06;
-    ctx.fillStyle = '#d9c38a';
-    layer(0.6, 340, (x) => {
-      ctx.beginPath();
-      ctx.moveTo(x + 80, 0); ctx.lineTo(x + 120, 0);
-      ctx.lineTo(x + 190, GY); ctx.lineTo(x + 110, GY);
-      ctx.fill();
-    });
-    ctx.restore();
   }
 
   // speed: 카메라 대비 움직이는 비율, gap: 반복 간격
@@ -138,6 +125,7 @@
       }
       G.Player.animate(player, dt);
       G.Combat.update(dt);
+      G.Boss.update(dt);
     }
     G.FX.update(dt);
     updateCamera(dt);
@@ -146,7 +134,9 @@
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawBackground();
     ctx.setTransform(scale, 0, 0, scale, -camX * scale, -camY * scale);
+    G.Boss.drawBack(ctx);      // 낭떠러지 뒤 보스 상반신
     G.Stage.drawFloor(ctx);
+    G.Boss.drawFront(ctx);     // 바닥을 짚은 보스 손
     // 안쪽(z 작음)부터 그려서 앞에 있는 것이 위에 보이게
     const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), G.Player.drawable(player)];
     list.sort((a, b) => a.key - b.key);
