@@ -11,10 +11,31 @@
   let camX = 0;
   let camY = 0;      // 높은 곳에 올라가면 화면이 위로 따라감 (0 또는 음수)
 
-  const player = G.Player.create(300, 95);
-  G.Combat.addDummy(560, 100);  // 공격 확인용 허수아비 (1-3단계에서 보스 타격으로 교체)
-  G.Boss.place();
-  G.Boss.updateUI();
+  const START = { x: 450, z: 100 };
+  const player = G.Player.create(START.x, START.z);
+  G.Boss.load('pan');             // 층마다 bosses.js의 다른 보스를 불러옴
+
+  // ---------- 게임 흐름: 승리 / 패배 / 재도전, 플레이어 체력 표시 ----------
+  const result = document.getElementById('result');
+  const hpFill = document.querySelector('#player-hp .fill');
+  G.Game = {
+    win() { show('승리', `${G.Boss.def.name}을(를) 쓰러뜨렸습니다`); },
+    lose() { setTimeout(() => show('패배', '쓰러졌습니다'), 900); },
+    updateHUD() { hpFill.style.width = (player.hp / CFG.player.maxHp * 100) + '%'; },
+    restart() {
+      Object.assign(player, G.Player.create(START.x, START.z));
+      G.Boss.reset();
+      result.classList.add('hidden');
+      G.Game.updateHUD();
+    },
+  };
+  function show(title, sub) {
+    result.querySelector('.title').textContent = title;
+    result.querySelector('.sub').textContent = sub;
+    result.classList.remove('hidden');
+  }
+  result.querySelector('button').addEventListener('click', () => G.Game.restart());
+  G.Game.updateHUD();
 
   // ---------- 화면 크기 맞추기 ----------
   function resize() {
@@ -38,31 +59,44 @@
   }
 
   // ---------- 임시 배경 (2단계에서 일러스트 배경으로 교체) ----------
-  // 보스가 주인공이므로 배경은 단순하게: 탑 꼭대기의 어두운 하늘 + 보스 뒤 큰 달빛
+  // 보스가 주인공이므로 배경은 단순하게: 보스 테마 색의 하늘 + 보스 뒤 큰 달 + 실루엣
   function drawBackground() {
-    const H = CFG.VIEW_H;
+    const H = CFG.VIEW_H, th = G.Boss.def.theme;
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#0d0a16');
-    sky.addColorStop(0.55, '#231a2e');
-    sky.addColorStop(1, '#120e18');
+    sky.addColorStop(0, th.sky[0]);
+    sky.addColorStop(0.55, th.sky[1]);
+    sky.addColorStop(1, th.sky[2]);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, viewW, H);
     // 보스 뒤 달 (보스 위치와 맞춰서, 카메라보다 천천히 움직임)
     const mx = CFG.ARENA_W / 2 - camX * 0.85, my = 150;
-    const g = ctx.createRadialGradient(mx, my, 20, mx, my, 260);
-    g.addColorStop(0, 'rgba(255, 214, 160, 0.30)');
-    g.addColorStop(0.4, 'rgba(200, 130, 120, 0.12)');
-    g.addColorStop(1, 'rgba(120, 80, 120, 0)');
+    const g = ctx.createRadialGradient(mx, my, 20, mx, my, 280);
+    g.addColorStop(0, `rgba(${th.moon}, 0.32)`);
+    g.addColorStop(0.45, `rgba(${th.moon}, 0.10)`);
+    g.addColorStop(1, `rgba(${th.moon}, 0)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, viewW, H);
-    ctx.fillStyle = 'rgba(255, 228, 190, 0.18)';
+    ctx.fillStyle = `rgba(${th.moon}, 0.16)`;
     ctx.beginPath(); ctx.arc(mx, my, 120, 0, Math.PI * 2); ctx.fill();
-    // 멀리 보이는 부서진 탑 외벽 (양옆)
-    layer(0.4, 520, (x) => {
-      ctx.fillStyle = '#16111f';
-      ctx.fillRect(x, 120, 34, H);
-      ctx.fillRect(x + 60, 200, 22, H);
-    });
+    if (th.silhouette === 'trees') {
+      // 멀고 가까운 두 겹의 숲 실루엣
+      layer(0.25, 150, (x) => tree(x, 250, 70, '#0d1a13'));
+      layer(0.45, 230, (x) => tree(x + 60, 285, 95, '#08110c'));
+    } else {
+      layer(0.4, 520, (x) => {
+        ctx.fillStyle = '#16111f';
+        ctx.fillRect(x, 120, 34, H);
+        ctx.fillRect(x + 60, 200, 22, H);
+      });
+    }
+  }
+  function tree(x, baseY, size, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x - size * 0.06, baseY - size * 0.6, size * 0.12, size * 0.6 + 200);
+    for (let i = 0; i < 3; i++) {
+      const y = baseY - size * (0.45 + i * 0.32), w = size * (0.5 - i * 0.12);
+      ctx.beginPath(); ctx.moveTo(x - w, y + size * 0.25); ctx.lineTo(x, y - size * 0.3); ctx.lineTo(x + w, y + size * 0.25); ctx.fill();
+    }
   }
 
   // speed: 카메라 대비 움직이는 비율, gap: 반복 간격
@@ -93,7 +127,7 @@
       `x ${p.x.toFixed(0)}  깊이 ${p.z.toFixed(0)}  높이 ${p.h.toFixed(0)}  점프 ${p.jumps}`,
       `ground ${p.onGround}  stick ${G.Input.axis.x.toFixed(1)},${G.Input.axis.y.toFixed(1)}`,
       `dash cd ${p.dashCd.toFixed(2)}  무적 ${p.iframe > 0 ? 'ON' : '-'}`,
-      `허수아비 누적 피해 ${G.Combat.targets.map(t => t.total).join(' / ')}`,
+      `체력 ${p.hp}  보스 ${G.Boss.state.hp}/${G.Boss.state.maxHp}  손 ${G.Boss.state.hands.map(h => h.state).join(',')}`,
     ];
     lines.forEach((t, i) => ctx.fillText(t, 12 * s, (40 + i * 14) * s));
     ctx.restore();
@@ -125,7 +159,7 @@
       }
       G.Player.animate(player, dt);
       G.Combat.update(dt);
-      G.Boss.update(dt);
+      G.Boss.update(dt, player);
     }
     G.FX.update(dt);
     updateCamera(dt);
@@ -133,12 +167,13 @@
     // 그리기
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawBackground();
-    ctx.setTransform(scale, 0, 0, scale, -camX * scale, -camY * scale);
+    const sx = fx.shakeX, sy = fx.shakeY;   // 화면 흔들림
+    ctx.setTransform(scale, 0, 0, scale, (-camX + sx) * scale, (-camY + sy) * scale);
     G.Boss.drawBack(ctx);      // 낭떠러지 뒤 보스 상반신
     G.Stage.drawFloor(ctx);
     G.Boss.drawFront(ctx);     // 바닥을 짚은 보스 손
     // 안쪽(z 작음)부터 그려서 앞에 있는 것이 위에 보이게
-    const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), G.Player.drawable(player)];
+    const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), ...G.Boss.drawables(), G.Player.drawable(player)];
     list.sort((a, b) => a.key - b.key);
     for (const d of list) d.draw(ctx);
     G.FX.drawFront(ctx);

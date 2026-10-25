@@ -8,7 +8,15 @@
 //   slashes : 공격 방향을 보여주는 둥근 칼날 자국 (바닥 평면 기준)
 // =====================================================================
 G.FX = (function () {
-  const fx = { hitstop: 0, sparks: [], trail: [], ghosts: [], texts: [], slashes: [] };
+  const fx = { hitstop: 0, sparks: [], trail: [], ghosts: [], texts: [], slashes: [], rings: [],
+               shakeT: 0, shakeDur: 1, shakePow: 0, shakeX: 0, shakeY: 0 };
+
+  // 화면 흔들림 (강한 공격에만, config의 shake 배율로 조절)
+  function shake(power, time) {
+    if (power >= fx.shakePow * (fx.shakeT / fx.shakeDur)) { fx.shakePow = power * G.CFG.shake; fx.shakeT = fx.shakeDur = time; }
+  }
+  // 바닥에 퍼지는 충격 고리 (x, 깊이 z, 반지름)
+  function ring(x, z, r) { fx.rings.push({ x, z, r, age: 0, life: 0.45 }); }
 
   // 칼날 자국: 공격 판정이 시작되는 순간(startup 뒤)에 나타나서 빠르게 휩쓸고 사라짐
   // 플레이어 위치를 따라다님 (내딛는 동안에도 몸에 붙어 있게)
@@ -35,7 +43,7 @@ G.FX = (function () {
     fx.sparks.push({ x, y, flash: true, size: 16 + power * 14, life: 0.08, age: 0 });
   }
 
-  function text(x, y, str) { fx.texts.push({ x, y, str, age: 0, life: 0.6 }); }
+  function text(x, y, str, color) { fx.texts.push({ x, y, str, color, age: 0, life: 0.6 }); }
 
   // 검 궤적: 칼끝(tip)과 칼날 중간(base)의 월드 좌표를 매 프레임 기록
   function trailPoint(tip, base) { fx.trail.push({ tip, base, age: 0 }); }
@@ -54,6 +62,13 @@ G.FX = (function () {
     fx.ghosts = fx.ghosts.filter(g => g.age < g.life);
     fx.texts.forEach(t => { t.age += dt; });
     fx.texts = fx.texts.filter(t => t.age < t.life);
+    fx.rings.forEach(r => { r.age += dt; });
+    fx.rings = fx.rings.filter(r => r.age < r.life);
+    if (fx.shakeT > 0) {
+      fx.shakeT = Math.max(0, fx.shakeT - dt);
+      const k = fx.shakePow * (fx.shakeT / fx.shakeDur);
+      fx.shakeX = (Math.random() - 0.5) * 2 * k; fx.shakeY = (Math.random() - 0.5) * 2 * k;
+    } else { fx.shakeX = fx.shakeY = 0; }
     fx.slashes.forEach(s => { s.age += dt; });
     fx.slashes = fx.slashes.filter(s => s.age < s.delay + s.life);
   }
@@ -95,6 +110,12 @@ G.FX = (function () {
 
   // 캐릭터 앞에 그릴 것
   function drawFront(ctx) {
+    for (const r of fx.rings) {
+      const k = r.age / r.life, y = G.Stage.floorY(r.z), rad = r.r * (0.6 + k * 0.9);
+      ctx.strokeStyle = `rgba(230, 210, 170, ${0.8 * (1 - k)})`;
+      ctx.lineWidth = 6 * (1 - k) + 1;
+      ctx.beginPath(); ctx.ellipse(r.x, y, rad, rad * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    }
     drawSlashes(ctx);
     // 검 궤적: 오래된 점일수록 투명한 띠
     const tr = fx.trail;
@@ -139,11 +160,11 @@ G.FX = (function () {
       ctx.globalAlpha = 1 - k * k;
       ctx.fillStyle = '#000';
       ctx.fillText(t.str, t.x + 1, t.y - k * 30 + 1);
-      ctx.fillStyle = '#ffe9a8';
+      ctx.fillStyle = t.color || '#ffe9a8';
       ctx.fillText(t.str, t.x, t.y - k * 30);
     }
     ctx.restore();
   }
 
-  return { state: fx, hitstop, spark, text, trailPoint, ghost, slash, update, drawBack, drawFront };
+  return { state: fx, hitstop, shake, ring, spark, text, trailPoint, ghost, slash, update, drawBack, drawFront };
 })();

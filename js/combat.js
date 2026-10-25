@@ -27,11 +27,41 @@ G.Combat = (function () {
     return along > r.f0 - rad && along < r.f1 + rad && Math.abs(side) < r.side + rad * 0.5;
   }
 
-  // ---------- 훈련용 허수아비 ----------
+  // ---------- 맞을 수 있는 대상 ----------
+  // { x, z, h, w, height, active, onHit(dmg) } — onHit이 있으면 맞았을 때 그 함수를 부름 (예: 보스 손)
+  // 허수아비는 onHit 없이 화면에 직접 그려지는 연습용 대상
   const targets = [];
 
+  function addTarget(t) { targets.push(t); return t; }
+  function removeTarget(t) { const i = targets.indexOf(t); if (i >= 0) targets.splice(i, 1); }
+
   function addDummy(x, z) {
-    targets.push({ x, z, h: 0, w: 40, height: 104, flash: 0, wobble: 0, wobbleV: 0, total: 0 });
+    targets.push({ x, z, h: 0, w: 40, height: 104, flash: 0, wobble: 0, wobbleV: 0, total: 0, dummy: true });
+  }
+
+  // ---------- 플레이어가 맞음 ----------
+  // fromX, fromZ: 공격이 온 곳 (그 반대 방향으로 밀려남)
+  function hurtPlayer(p, dmg, fromX, fromZ) {
+    const c = G.CFG.player;
+    if (p.dead || p.iframe > 0) return false;
+    p.hp = Math.max(0, p.hp - dmg);
+    p.atk = null; p.dash = null;
+    let dx = p.x - fromX, dz = p.z - fromZ;
+    const len = Math.hypot(dx, dz) || 1;
+    dx /= len; dz /= len;
+    if (Math.abs(dx) < 0.2 && Math.abs(dz) < 0.2) dx = -p.facing;
+    p.vx = dx * c.knockback; p.vz = dz * c.knockback * 0.6; p.vh = 320;
+    p.onGround = false;
+    if (Math.abs(dx) > 0.2) p.facing = -Math.sign(dx);   // 맞은 쪽을 바라봄
+    p.hurt = c.hurtTime;
+    p.iframe = c.hurtIframe;
+    G.FX.hitstop(0.08);
+    G.FX.shake(6, 0.2);
+    G.FX.spark(p.x, S().screenY(p.z, p.h + 60), dx > 0 ? 1 : -1, 0.8);
+    G.FX.text(p.x, S().screenY(p.z, p.h + 130), '-' + dmg, '#ff8a7a');
+    if (p.hp <= 0) { p.dead = true; G.Game.lose(); }
+    G.Game.updateHUD();
+    return true;
   }
 
   // 플레이어 공격이 대상에 맞았는지 검사. 맞으면 true
@@ -39,15 +69,19 @@ G.Combat = (function () {
     const a = p.atk, r = attackRange(p);
     let hitAny = false;
     for (const t of targets) {
+      if (t.active === false) continue;
       if (a.hit.has(t)) continue;                       // 한 번 휘두를 때 같은 대상은 한 번만
       if (!inRange(p, r, t)) continue;
       a.hit.add(t);
       hitAny = true;
 
-      t.total += a.def.dmg;
-      t.flash = 0.1;
       const push = Math.abs(a.dir.x) > 0.3 ? Math.sign(a.dir.x) : (Math.random() < 0.5 ? -1 : 1);
-      t.wobbleV += push * (a.def.dmg >= 15 ? 9 : 5);
+      if (t.onHit) t.onHit(a.def.dmg);
+      else {
+        t.total += a.def.dmg;
+        t.flash = 0.1;
+        t.wobbleV += push * (a.def.dmg >= 15 ? 9 : 5);
+      }
 
       // 효과는 대상 몸에서 공격 쪽 (화면 좌표)
       const ch = (Math.max(r.h0, t.h) + Math.min(r.h1, t.h + t.height)) / 2;
@@ -61,6 +95,7 @@ G.Combat = (function () {
 
   function update(dt) {
     for (const t of targets) {
+      if (!t.dummy) continue;
       t.flash = Math.max(0, t.flash - dt);
       t.wobbleV += -t.wobble * 120 * dt;       // 용수철처럼 흔들리다 멈춤
       t.wobbleV *= Math.pow(0.02, dt);
@@ -88,7 +123,7 @@ G.Combat = (function () {
   }
 
   function drawables() {
-    return targets.map(t => ({ key: t.z, draw: ctx => drawTarget(ctx, t) }));
+    return targets.filter(t => t.dummy).map(t => ({ key: t.z, draw: ctx => drawTarget(ctx, t) }));
   }
 
   function drawDebug(ctx, p) {
@@ -96,6 +131,7 @@ G.Combat = (function () {
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#7fffb0';
     for (const t of targets) {
+      if (t.active === false) continue;
       const y = S().screenY(t.z, t.h);
       ctx.strokeRect(t.x - t.w / 2, y - t.height, t.w, t.height);
     }
@@ -116,5 +152,5 @@ G.Combat = (function () {
     ctx.restore();
   }
 
-  return { targets, addDummy, playerAttack, update, drawables, drawDebug };
+  return { targets, addTarget, removeTarget, addDummy, hurtPlayer, playerAttack, update, drawables, drawDebug };
 })();

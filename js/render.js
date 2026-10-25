@@ -130,6 +130,123 @@ G.Render = (function () {
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(w * 0.3, h); ctx.lineTo(w * 0.1, h * 0.7); ctx.lineTo(w * 0.35, h * 0.58); ctx.stroke();
     },
+    // 아래팔 + 손바닥과 손가락 (거인형 보스의 손). 좌표계 +y = 손 쪽
+    beastArm(ctx, len, s) {
+      capsule(ctx, len, s.w1, s.w2 * 0.8);
+      fillStroke(ctx, s, 3);
+      const pw = s.w2;
+      // 손가락 4개 + 엄지
+      for (let i = 0; i < 4; i++) {
+        const a = -0.42 + i * 0.28;
+        ctx.save(); ctx.translate(Math.sin(-a) * pw * 0.3, len + pw * 0.3); ctx.rotate(a);
+        capsule(ctx, pw * 0.62, pw * 0.2, pw * 0.16);
+        fillStroke(ctx, { color: s.finger || s.color }, 2.5);
+        ctx.restore();
+      }
+      ctx.save(); ctx.translate(pw * 0.42, len + pw * 0.05); ctx.rotate(-1.0);
+      capsule(ctx, pw * 0.45, pw * 0.22, pw * 0.17);
+      fillStroke(ctx, { color: s.finger || s.color }, 2.5);
+      ctx.restore();
+      ctx.beginPath(); ctx.ellipse(0, len + pw * 0.18, pw * 0.55, pw * 0.42, 0, 0, Math.PI * 2);
+      fillStroke(ctx, s, 3);
+    },
+    // ----- 짐승형 신 (1층 판) 정면 도형 -----
+    // 좌표계: +y = 위쪽(목 방향), 좌우 대칭
+    beastTorso(ctx, len, s) {
+      const b = s.w1 / 2, t = s.w2 / 2;
+      ctx.beginPath();
+      ctx.moveTo(-b, -10);
+      ctx.quadraticCurveTo(0, -18, b, -10);
+      ctx.quadraticCurveTo(t * 0.95, len * 0.45, t * 0.9, len - 22);   // 넓은 가슴
+      ctx.quadraticCurveTo(t * 1.02, len + 6, t * 0.45, len + 8);       // 어깨
+      ctx.lineTo(-t * 0.45, len + 8);
+      ctx.quadraticCurveTo(-t * 1.02, len + 6, -t * 0.9, len - 22);
+      ctx.quadraticCurveTo(-t * 0.95, len * 0.45, -b, -10);
+      ctx.closePath();
+      fillStroke(ctx, s, 3);
+      // 가슴 근육 그늘
+      ctx.fillStyle = s.shade;
+      ctx.beginPath(); ctx.ellipse(-t * 0.35, len * 0.68, t * 0.32, len * 0.12, 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(t * 0.35, len * 0.68, t * 0.32, len * 0.12, -0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(-3, len * 0.15, 6, len * 0.42);
+      // 아랫배 털
+      ctx.fillStyle = s.fur;
+      for (let i = -4; i <= 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * b * 0.24 - 10, -6); ctx.lineTo(i * b * 0.24, 18 + (i % 2) * 8); ctx.lineTo(i * b * 0.24 + 10, -6);
+        ctx.fill();
+      }
+      // 어깨에서 허리로 두른 잎사귀 띠
+      ctx.fillStyle = s.leaf;
+      for (let k = 0; k <= 10; k++) {
+        const u = k / 10, x = t * 0.75 - u * (t * 0.75 + b * 0.8), y = len - 6 - u * (len - 30);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(0.7 + (k % 2) * 0.5);
+        ctx.beginPath(); ctx.ellipse(0, 0, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    },
+    hornedHead(ctx, len, s) {
+      const w = s.r, h = len;
+      // 뿔: 머리 위 양옆에서 바깥으로 말려 나감
+      ctx.strokeStyle = '#0d0b12';
+      for (const side of [-1, 1]) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        const horn = (width, color) => {
+          ctx.strokeStyle = color; ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(side * w * 0.45, h * 0.85);
+          ctx.bezierCurveTo(side * w * 0.9, h * 1.45, side * w * 2.1, h * 1.25, side * w * 1.85, h * 0.7);
+          ctx.quadraticCurveTo(side * w * 1.65, h * 0.38, side * w * 1.3, h * 0.6);
+          ctx.stroke();
+        };
+        horn(22, '#0d0b12');
+        horn(16, s.horn);
+        ctx.restore();
+      }
+      // 귀 (옆으로 뾰족하게)
+      ctx.fillStyle = s.color;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(side * w * 0.8, h * 0.62);
+        ctx.lineTo(side * w * 1.55, h * 0.5);
+        ctx.lineTo(side * w * 0.85, h * 0.45);
+        ctx.closePath();
+        fillStroke(ctx, s, 2.5);
+      }
+      // 얼굴 (아래로 갈수록 좁은 염소형)
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.85, h * 0.9);
+      ctx.quadraticCurveTo(0, h * 1.08, w * 0.85, h * 0.9);
+      ctx.lineTo(w * 0.62, h * 0.3);
+      ctx.quadraticCurveTo(0, h * 0.02, -w * 0.62, h * 0.3);
+      ctx.closePath();
+      fillStroke(ctx, s, 3);
+      // 수염
+      ctx.fillStyle = s.beard;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.45, h * 0.24);
+      ctx.quadraticCurveTo(-w * 0.2, -h * 0.25, 0, -h * 0.38);
+      ctx.quadraticCurveTo(w * 0.2, -h * 0.25, w * 0.45, h * 0.24);
+      ctx.closePath();
+      fillStroke(ctx, { color: s.beard }, 2.5);
+      // 이마 그늘 + 빛나는 눈
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      ctx.beginPath(); ctx.ellipse(0, h * 0.6, w * 0.7, h * 0.09, 0, 0, Math.PI * 2); ctx.fill();
+      const pulse = s.pulse || 1;
+      ctx.save();
+      ctx.shadowColor = s.eye; ctx.shadowBlur = 16 * pulse;
+      ctx.fillStyle = s.eye;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(side * w * 0.33, h * 0.56, w * 0.17, h * 0.045, side * -0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      // 코
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.beginPath(); ctx.ellipse(0, h * 0.32, w * 0.16, h * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+    },
     sword(ctx, len, s) {
       const g = 6;              // 손잡이 길이
       ctx.fillStyle = s.grip;

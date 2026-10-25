@@ -99,6 +99,15 @@ G.Player = (function () {
                    legF_up: -60, legF_low: 90, legB_up: -20, legB_low: 100 } },
     ] };
   }
+  // 맞았을 때 / 쓰러졌을 때
+  CLIPS.hurt = { dur: 0.1, loop: false, keys: [
+    { t: 0, p: { torso: -22, head: 14, armF_up: 30, armF_low: -40, weapon: 70, armB_up: -60, armB_low: -40,
+                 legF_up: -40, legF_low: 50, legB_up: 20, legB_low: 40 } },
+  ] };
+  CLIPS.dead = { dur: 0.5, loop: false, keys: [
+    { t: 0,   p: { hip: -30, torso: -10, head: 10, armF_up: 40, armF_low: -20, weapon: 90, armB_up: -80, legF_up: -40, legF_low: 60, legB_up: 10, legB_low: 30 } },
+    { t: 0.5, p: { hip: -88, torso: 0, head: 10, armF_up: 70, armF_low: -10, weapon: 100, armB_up: -100, legF_up: -10, legF_low: 10, legB_up: 5, legB_low: 15 } },
+  ] };
   CLIPS.dash = { dur: 0.1, loop: false, keys: [
     { t: 0, p: { torso: 32, head: -18, armF_up: 40, armF_low: -20, weapon: 60, armB_up: 55, armB_low: -20,
                  legF_up: -30, legF_low: 60, legB_up: 45, legB_low: 40 } },
@@ -134,6 +143,7 @@ G.Player = (function () {
       atk: null, atkBuf: 0, combo: 0, chainT: 0, atkCount: 0, animAtkId: -1,
       // 대시
       dash: null, dashBuf: 0, dashCd: 0, airDashUsed: false, iframe: 0, ghostT: 0,
+      hp: c.maxHp, hurt: 0, dead: false,
       state: 'idle', jumpAnim: 'jump',
       anim: new G.Rig.Animator(CLIPS),
       joints: null,
@@ -159,6 +169,16 @@ G.Player = (function () {
     p.iframe = Math.max(0, p.iframe - dt);
     p.chainT = Math.max(0, p.chainT - dt);
     p.coyote = p.onGround ? c.coyoteTime : Math.max(0, p.coyote - dt);
+    p.hurt = Math.max(0, p.hurt - dt);
+
+    // 맞은 직후나 쓰러진 뒤에는 조작 불가: 미끄러지며 멈추기만
+    if (p.dead || p.hurt > 0) {
+      const f = p.onGround ? c.decel * 0.6 : c.airDecel * 0.3;
+      p.vx = approach(p.vx, 0, f * dt); p.vz = approach(p.vz, 0, f * dt);
+      p.vh = Math.max(p.vh - G.CFG.GRAVITY * dt, -G.CFG.MAX_FALL);
+      p.onGround = G.Stage.move(p, dt);
+      return;
+    }
 
     // 1순위: 회피 대시 (공격 중에도 바로 끊고 회피 가능)
     if (p.dashBuf > 0 && p.dashCd <= 0 && !p.dash && (p.onGround || !p.airDashUsed)) startDash(p, ax, ay);
@@ -275,6 +295,7 @@ G.Player = (function () {
     if (len > 0.3) { dx = ax / len; dz = ay / len; }
     let best = null, bestD = A.aimRange;
     for (const t of G.Combat.targets) {
+      if (t.active === false) continue;
       const tx = t.x - p.x, tz = t.z - p.z, d = Math.hypot(tx, tz);
       if (d < 1 || d > bestD) continue;
       const cos = (tx * dx + tz * dz) / d;
@@ -365,7 +386,13 @@ G.Player = (function () {
   function animate(p, dt) {
     const c = C();
     let speed = 1;
-    if (p.dash) {
+    if (p.dead) {
+      p.state = 'dead';
+      p.anim.play('dead', false, 0.05);
+    } else if (p.hurt > 0) {
+      p.state = 'hurt';
+      p.anim.play('hurt', false, 0.04);
+    } else if (p.dash) {
       p.state = 'dash';
       p.anim.play('dash', false, 0.03);
     } else if (p.atk) {
@@ -418,7 +445,12 @@ G.Player = (function () {
     const air = Math.min(1, (p.h - floor) / 150);
     G.Render.shadow(ctx, p.x, G.Stage.screenY(p.z, floor), 20 * (1 - air * 0.5), 0.45 * (1 - air * 0.6));
     G.FX.drawBack(ctx, drawGhost);
+    // 맞은 뒤 무적 시간에는 깜빡임 (대시 무적은 잔상으로 표시하므로 제외)
+    const blink = p.iframe > 0 && !p.dash && !p.dead && Math.floor(p.iframe / 0.07) % 2 === 0;
+    ctx.save();
+    if (blink) ctx.globalAlpha = 0.35;
     G.Render.drawRig(ctx, p.joints, SKIN, ORDER, p.x, p.sy, p.facing);
+    ctx.restore();
     if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.sy, p.facing);
   }
 

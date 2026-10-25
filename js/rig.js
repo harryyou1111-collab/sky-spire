@@ -64,6 +64,35 @@ G.Rig = (function () {
     return { x: j.o.x - Math.sin(j.a) * j.len, y: j.o.y + Math.cos(j.a) * j.len };
   }
 
+  // ---------------- 두 마디 IK (팔을 목표 지점으로 뻗기) ----------------
+  // 어깨 S에서 목표 T까지 길이 l1(위팔), l2(아래팔)인 팔이 닿도록 각도를 계산
+  // outSign: 팔꿈치를 어느 쪽으로 굽힐지 (+1 = 화면 오른쪽, -1 = 왼쪽)
+  // 반환: { a1: 위팔 절대 각도, a2: 아래팔 절대 각도, reached: 목표에 닿았는지 }
+  function angleOf(dx, dy) { return Math.atan2(-dx, dy); }   // 뼈 방향 → 각도 (이 파일 규칙)
+
+  function ik2(S, T, l1, l2, outSign) {
+    let dx = T.x - S.x, dy = T.y - S.y;
+    let D = Math.hypot(dx, dy);
+    const maxD = (l1 + l2) * 0.98, minD = Math.abs(l1 - l2) + 1;
+    const reached = D <= maxD;
+    D = Math.max(minD, Math.min(maxD, D));
+    const base = angleOf(dx, dy);
+    const cosA = (l1 * l1 + D * D - l2 * l2) / (2 * l1 * D);
+    const alpha = Math.acos(Math.max(-1, Math.min(1, cosA)));
+    // 두 가지 굽힘 중 팔꿈치가 outSign 쪽으로 나가는 것을 고름
+    let best = null;
+    for (const sgn of [1, -1]) {
+      const a1 = base + sgn * alpha;
+      const ex = S.x - Math.sin(a1) * l1;
+      if (!best || (ex - S.x) * outSign > best.score) {
+        const ey = S.y + Math.cos(a1) * l1;
+        const tx = S.x + dx / Math.hypot(dx, dy) * D, ty = S.y + dy / Math.hypot(dx, dy) * D;
+        best = { a1, a2: angleOf(tx - ex, ty - ey), score: (ex - S.x) * outSign };
+      }
+    }
+    return { a1: best.a1, a2: best.a2, reached };
+  }
+
   // ---------------- 애니메이션 ----------------
   // clip = { dur: 길이(초), loop: 반복 여부, keys: [{ t: 시간, p: 포즈 }, ...] }
   function smooth(u) { return u * u * (3 - 2 * u); }
@@ -123,5 +152,5 @@ G.Rig = (function () {
     return !c.loop && this.time >= c.dur;
   };
 
-  return { humanoid, compute, tip, Animator };
+  return { humanoid, compute, tip, ik2, Animator };
 })();
