@@ -2,9 +2,7 @@
 // bosses.js — 보스 데이터 (층마다 하나씩 추가)
 //
 // 새 보스를 만들 때 이 파일에 항목 하나를 추가합니다.
-//   body    : 뼈대 길이 (거인형 정면 뼈대 기준)
-//   skin    : 파츠별 모양과 색. img 파일이 있으면 그 그림을, 없으면 도형을 그림
-//             (img 규칙은 render.js 맨 위 설명 참고)
+//   poses   : 동작별 자세 그림과 위치 (boss.js 맨 위 설명 참고)
 //   theme   : 배경 분위기
 //   patterns: 사용하는 공격 패턴과 수치 (패턴 동작은 boss.js)
 //   phase2  : 체력이 일정 이하일 때 바뀌는 수치
@@ -20,35 +18,23 @@ G.BossDefs = {
     title: '숲과 공포의 신',
     hp: 320,
 
-    // shoulderDrop: 몸통 꼭대기(목)에서 어깨 관절까지 내려온 거리 — 그림의 어깨 위치에 맞춤
-    // maxShift: 멀리 있는 플레이어를 칠 때 상체가 그쪽으로 옮겨가는 최대 거리 (팔만 늘어나 보이지 않게)
-    // restElbowOut: 쉴 때 팔꿈치가 어깨에서 바깥으로 벌어지는 거리 (팔꿈치는 낭떠러지 끝에 걸침)
-    body: { torso: 180, head: 123, armUp: 108, armLow: 116, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48, maxShift: 90, restElbowOut: 70 },
-    // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 전투장 끝(낭떠러지 가장자리)에 팔을 걸치고 내려다보는 자세
-    restHands: [{ dx: -150, z: 55 }, { dx: 150, z: 55 }],
-    fist: { r: 34 },                                         // 주먹 크기 (그림자·판정용)
-
-    skin: {
-      torso:    { shape: 'beastTorso', w1: 118, w2: 196, color: '#8b6a4e', shade: '#6d5139', fur: '#5a4330', leaf: '#5e8a3a',
-                  img: 'assets/bosses/pan/torso.png', anchor: 'bottom', lenMul: 1.01 },
-      head:     { shape: 'hornedHead', r: 46, color: '#987657', horn: '#d8c7a3', beard: '#5a4330', eye: '#9dff7a',
-                  img: 'assets/bosses/pan/head.png', anchor: 'bottom', lenMul: 1.36, offset: [0, 42] },
-      armL_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3,
-                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.12, widthMul: 1.3, offset: [0, -12], mirror: true },
-      armR_up:  { shape: 'capsule', w1: 60, w2: 50, color: '#7d5f45', lineW: 3,
-                  img: 'assets/bosses/pan/arm_up.png', anchor: 'top', lenMul: 1.12, widthMul: 1.3, offset: [0, -12] },
-      armL_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
-                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.25, offset: [0, -12], mirror: true },
-      armR_low: { shape: 'beastArm', w1: 52, w2: 62, color: '#6e523b', finger: '#7d5f45',
-                  img: 'assets/bosses/pan/arm_low.png', anchor: 'top', lenMul: 1.27, widthMul: 1.25, offset: [0, -12] },
-    },
-
-    // 자세 그림: 패턴 동안 파츠 리그 대신 통째로 보여주는 그림
-    //   width: 게임 속 가로 크기, anchor: 그림 속 목 위치(픽셀), glow: 기운이 모이는 위치(픽셀)
+    // ---------- 자세 그림 ----------
+    // 동작마다 통째로 그린 그림 한 장. 코드는 그림을 옮기고·뒤집고·숨쉬게만 함
+    //   cx: 그림 속 얼굴(몸 중심) 가로 위치(픽셀), bottom: 그림 속 땅에 닿는 선(픽셀)
+    //   scale: 그림마다 캐릭터 크기가 다를 때 보정, hand: 내려친 손 위치, glow: 피리 끝
+    poseScale: 0.43,     // 그림 1픽셀 = 게임 몇 단위 (idle 기준 키 ≈ 235)
+    baseX: 450,          // 보스가 서 있는 가로 위치 (전투장 가운데)
+    baseZ: 6,            // 보스가 서 있는 깊이 (맨 안쪽)
+    maxShift: 200,       // 멀리 있는 플레이어를 칠 때 몸이 옮겨가는 최대 거리
+    lungeGrow: 0.0015,   // 앞으로 숙일 때 (가까워지니) 커지는 정도
+    handHit: { w: 80, h: 60 },   // 박힌 손을 때릴 수 있는 범위
     poses: {
-      flute: { img: 'assets/bosses/pan/pose_flute.png', width: 344, anchor: [490, 330], offsetY: 6, glow: [20, 395] },
-      // 쉬는 자세 그림 (아직 없음 — 파일을 넣으면 자동으로 사용. anchor는 그림을 받은 뒤 맞춤)
-      idle:  { img: 'assets/bosses/pan/pose_idle.png', width: 344, anchor: [410, 330] },
+      idle:       { img: 'assets/bosses/pan/pose_idle.png',       cx: 348, bottom: 546, scale: 1 },
+      raise:      { img: 'assets/bosses/pan/pose_raise.png',      cx: 307, bottom: 639, scale: 1.02 },
+      slam:       { img: 'assets/bosses/pan/pose_slam.png',       cx: 373, bottom: 624, scale: 1.0, hand: [576, 613] },
+      press:      { img: 'assets/bosses/pan/pose_press.png',      cx: 348, bottom: 635, scale: 0.8 },
+      press_glow: { img: 'assets/bosses/pan/pose_press_glow.png', cx: 349, bottom: 628, scale: 0.8 },
+      flute:      { img: 'assets/bosses/pan/pose_flute.png',      cx: 490, bottom: 643, scale: 0.78, glow: [20, 395] },
     },
 
     theme: {

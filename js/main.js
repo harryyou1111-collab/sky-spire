@@ -136,7 +136,7 @@
       `ground ${p.onGround}  stick ${G.Input.axis.x.toFixed(1)},${G.Input.axis.y.toFixed(1)}`,
       `dash cd ${p.dashCd.toFixed(2)}  무적 ${p.iframe > 0 ? 'ON' : '-'}`,
       G.Render.missing.size ? `없는 그림 ${G.Render.missing.size}개 (도형으로 대신)` : '그림 파일 모두 있음',
-      `체력 ${p.hp}  보스 ${G.Boss.state.hp}/${G.Boss.state.maxHp}  손 ${G.Boss.state.hands.map(h => h.state).join(',')}`,
+      `체력 ${p.hp}  보스 ${G.Boss.state.hp}/${G.Boss.state.maxHp}  자세 ${G.Boss.state.cur.key}${G.Boss.state.slam ? ' 찍기:' + G.Boss.state.slam.phase : ''}`,
     ];
     lines.forEach((t, i) => ctx.fillText(t, 12 * s, (40 + i * 14) * s));
     ctx.restore();
@@ -178,9 +178,9 @@
     drawBackground();
     const sx = fx.shakeX, sy = fx.shakeY;   // 화면 흔들림
     ctx.setTransform(scale, 0, 0, scale, (-camX + sx) * scale, (-camY + sy) * scale);
-    G.Boss.drawBack(ctx);      // 낭떠러지 뒤 보스 상반신
+    G.Boss.drawBack(ctx);      // 보스 뒤 기운
     G.Stage.drawFloor(ctx);
-    G.Boss.drawFront(ctx);     // 바닥을 짚은 보스 손
+    G.Boss.drawFront(ctx);     // 예고 표시 + 보스 그림
     // 안쪽(z 작음)부터 그려서 앞에 있는 것이 위에 보이게
     const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), ...G.Boss.drawables(), G.Player.drawable(player)];
     list.sort((a, b) => a.key - b.key);

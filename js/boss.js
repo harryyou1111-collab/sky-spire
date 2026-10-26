@@ -1,87 +1,56 @@
 // =====================================================================
-// boss.js — 거대 보스 엔진 (보스 데이터는 bosses.js)
+// boss.js — 거대 보스 엔진 (자세 그림 방식). 보스 데이터는 bosses.js
 //
-// 보스는 전투장 뒤 낭떠러지에서 상반신을 내밀고, 두 손으로 바닥을 짚습니다.
-// 몸통·머리는 때릴 수 없고, 바닥으로 내려온 손을 때려서 체력을 깎습니다.
-// 팔은 IK(rig.js)로 손 위치를 따라가므로, 손을 어디로 옮기든 자연스럽게 뻗습니다.
+// 보스는 동작마다 "자세 그림" 한 장을 보여주고, 그림 사이를 부드럽게 넘깁니다.
+// 코드는 그림을 옮기고(좌우 이동, 앞으로 숙이기), 좌우로 뒤집고, 숨쉬게 하고,
+// 효과(예고 원, 충격, 소리 고리, 덩굴)를 더합니다.
 //
-// 손 상태: rest(쉼) → raise(들고 조준) → drop(내려침) → stuck(박힘, 때릴 기회) → back(복귀)
-//          ctrl(패턴이 직접 위치를 정함: 피리 들기, 땅 짚기)
-// 패턴: slam(내려찍기), flute(피리 충격파), vines(가시덩굴)
+// 자세 그림 위치 규칙 (bosses.js의 poses):
+//   cx     : 그림 속 몸 중심(얼굴)의 가로 위치 (픽셀)
+//   bottom : 그림 속 땅에 닿는 선 (손이 땅을 짚는 높이, 픽셀)
+//   scale  : 자세마다 크기 보정 (그림마다 캐릭터 크기가 조금씩 다를 때)
+//   hand   : (slam) 땅을 내리친 손의 위치 (픽셀)
+//   glow   : (flute) 기운이 모이는 위치 (픽셀)
+//
+// 내려찍기: 플레이어 쪽 팔을 치켜듦(raise) → 몸을 옮기고 앞으로 숙이며 내리침(slam)
+//           → 손이 박혀 있는 동안 때릴 수 있음 → 원래 자세(idle)로 돌아감
+// 왼쪽을 칠 때는 그림을 좌우로 뒤집어 씀
 // =====================================================================
 G.Boss = (function () {
-  const D2R = Math.PI / 180;
   const S = () => G.Stage;
-
-  let def = null, SKELETON = null, CLIPS = null;
-  const BACK_ORDER = ['torso', 'armL_up', 'armR_up', 'head'];
-  const FRONT_ORDER = ['armL_low', 'armR_low'];
+  let def = null;
 
   const boss = {
     hp: 1, maxHp: 1,
-    x: 0, y: 0,                // 골반 위치 (화면 좌표, 바닥선 아래에 숨겨짐)
     mode: 'fight',             // fight / dying / dead
     timer: 0,                  // 다음 공격까지 남은 시간
-    time: 0, flash: 0, sink: 0, lean: 0,
-    shift: 0,                  // 몸통이 옆으로 움직인 거리 (멀리 있는 플레이어를 칠 때 상체를 그쪽으로 숙임)
-    pose: null, poseK: 0,      // 자세 그림 (예: 피리 불기). poseK 0 = 파츠 리그, 1 = 자세 그림
-    hands: [],
-    marks: [],                 // 바닥 예고 원과 균열
+    time: 0, flash: 0, sink: 0,
+    shift: 0, shiftT: 0,       // 좌우 이동 (현재, 목표)
+    lunge: 0, lungeT: 0,       // 앞으로 숙인 정도 = 바닥 깊이 방향 이동 (현재, 목표)
+    follow: 4,                 // 이동을 따라가는 빠르기
+    cur: { key: 'idle', mirror: false }, prev: null, fade: 1, fadeDur: 0.2,
+    slam: null,                // 진행 중인 내려찍기
+    queue: 0,                  // 2단계 연속 내려찍기 남은 횟수
     pattern: null,             // 진행 중인 몸 전체 패턴 (flute, vines)
-    rings: [],                 // 퍼지는 소리 고리
-    lanes: [],                 // 가시덩굴 줄
+    marks: [], rings: [], lanes: [],
     last: null,                // 직전 패턴 (연속 방지)
-    anim: null, joints: null,
+    target: null,              // 때릴 수 있는 손 (Combat 대상)
   };
 
   // ---------- 보스 불러오기 ----------
-  function load(key) {
-    def = G.BossDefs[key];
-    const b = def.body;
-    SKELETON = {
-      hipHeight: 0, footPad: 0,
-      bones: [
-        { name: 'hip',      parent: null,      at: [0, 0],                          rest: 0,       len: 0 },
-        { name: 'torso',    parent: 'hip',     at: [0, 0],                          rest: Math.PI, len: b.torso },
-        { name: 'head',     parent: 'torso',   at: [0, b.torso - 6],                rest: 0,       len: b.head },
-        { name: 'armL_up',  parent: 'torso',   at: [b.shoulderX, b.torso - (b.shoulderDrop || 22)], rest: Math.PI, len: b.armUp },
-        { name: 'armL_low', parent: 'armL_up', at: [0, b.armUp],                    rest: 0,       len: b.armLow },
-        { name: 'armR_up',  parent: 'torso',   at: [-b.shoulderX, b.torso - (b.shoulderDrop || 22)], rest: Math.PI, len: b.armUp },
-        { name: 'armR_low', parent: 'armR_up', at: [0, b.armUp],                    rest: 0,       len: b.armLow },
-      ],
-    };
-    // 숨쉬기 (팔 각도는 IK가 덮어쓰므로 몸통·머리만)
-    CLIPS = { idle: { dur: 3.2, loop: true, keys: [
-      { t: 0,   p: { hipY: 0,  torso: 0,  head: 0 } },
-      { t: 1.6, p: { hipY: -6, torso: -2, head: -3 } },
-    ] } };
-    reset();
-  }
+  function load(key) { def = G.BossDefs[key]; reset(); }
 
   function reset() {
-    boss.hp = boss.maxHp = def.hp;
-    boss.mode = 'fight';
-    boss.timer = 1.5;
-    boss.time = 0; boss.flash = 0; boss.sink = 0; boss.lean = 0; boss.shift = 0; boss.pose = null; boss.poseK = 0;
-    boss.x = G.CFG.ARENA_W / 2;
-    boss.y = S().floorY(0) + def.body.hipBelowEdge;
-    boss.anim = new G.Rig.Animator(CLIPS);
-    boss.marks = []; boss.rings = []; boss.lanes = []; boss.pattern = null; boss.last = null;
-    // 기존 손 판정 제거 후 새로 등록
-    for (const h of boss.hands) G.Combat.removeTarget(h.target);
-    boss.hands = def.restHands.map((r, i) => {
-      const hand = {
-        side: i === 0 ? 'L' : 'R',
-        rest: { x: boss.x + r.dx, z: r.z },
-        x: boss.x + r.dx, z: r.z, h: 0,
-        state: 'rest', t: 0, from: null, aim: null,
-        shake: 0,
-      };
-      hand.target = G.Combat.addTarget({
-        x: hand.x, z: hand.z, h: 0, w: def.fist.r * 2.2, height: def.fist.r * 1.6, active: false,
-        onHit: (dmg) => hurtBoss(dmg, hand),
-      });
-      return hand;
+    Object.assign(boss, {
+      hp: def.hp, maxHp: def.hp, mode: 'fight', timer: 1.5, time: 0, flash: 0, sink: 0,
+      shift: 0, shiftT: 0, lunge: 0, lungeT: 0, follow: 4,
+      cur: { key: 'idle', mirror: false }, prev: null, fade: 1,
+      slam: null, queue: 0, pattern: null, marks: [], rings: [], lanes: [], last: null,
+    });
+    if (boss.target) G.Combat.removeTarget(boss.target);
+    boss.target = G.Combat.addTarget({
+      x: 0, z: 0, h: 0, w: def.handHit.w, height: def.handHit.h, active: false,
+      onHit: (dmg) => hurtBoss(dmg),
     });
     updateUI();
   }
@@ -92,274 +61,175 @@ G.Boss = (function () {
     if (def.phase2 && boss.hp / boss.maxHp <= def.phase2.at) Object.assign(p, def.phase2[kind] || {});
     return p;
   }
-  const slamParams = () => params('slam');
+  const phase2 = () => def.phase2 && boss.hp / boss.maxHp <= def.phase2.at;
 
-  // ---------- 손이 닿을 수 있는 위치로 목표 보정 ----------
-  // 목표 x를 칠 때 몸통이 옆으로 움직일 거리 (최대 maxShift)
-  function shiftFor(x) {
-    const m = def.body.maxShift || 0;
-    return Math.max(-m, Math.min(m, (x - boss.x) * 0.4));
-  }
-  function shoulderScreen(side, shift) {
-    const j = boss.joints || G.Rig.compute(SKELETON, boss.anim.pose, false);
-    const s = j[side === 'L' ? 'armL_up' : 'armR_up'].o;
-    return { x: boss.x + shift + s.x, y: boss.y + s.y };
-  }
-  function reachable(side, x, z) {
-    const sh = shoulderScreen(side, shiftFor(x)), b = def.body;
-    const tx = x, ty = S().screenY(z, def.fist.r);
-    return Math.hypot(tx - sh.x, ty - sh.y) < (b.armUp + b.armLow) * 0.95;
-  }
-  function clampTarget(side, x, z) {
-    x = Math.max(boss.x - 330, Math.min(boss.x + 330, x));
-    // 너무 멀면 보스 쪽(안쪽, 가운데)으로 당김
-    for (let i = 0; i < 30 && !reachable(side, x, z); i++) {
-      z = Math.max(0, z - 6);
-      x += (boss.x - x) * 0.04;
-    }
-    return { x, z };
+  // ---------- 자세 전환 ----------
+  function setPose(key, mirror, dur) {
+    mirror = !!mirror;
+    if (boss.cur.key === key && boss.cur.mirror === mirror) return;
+    boss.prev = boss.cur;
+    boss.cur = { key, mirror };
+    boss.fadeDur = Math.max(0.001, dur == null ? 0.2 : dur);
+    boss.fade = 0;
   }
 
-  // ---------- 공격 시작 ----------
-  function startSlam(hand, player, delay) {
-    const p = slamParams();
-    hand.state = 'raise';
-    hand.t = -(delay || 0);
-    hand.params = p;
-    hand.from = { x: hand.x, z: hand.z, h: hand.h };
-    hand.aim = clampTarget(hand.side, player.x, player.z);
-    hand.base = G.Stage.support(hand.aim.x, hand.aim.z, 9999);   // 기둥 위면 기둥 윗면을 침
-    hand.mark = { x: hand.aim.x, z: hand.aim.z, r: p.radius, kind: 'warn', k: 0, hand };
-    boss.marks.push(hand.mark);
+  // 자세 그림 배치: 그림의 (cx, bottom)을 바닥 위 기준점에 맞춤
+  function scaleOf(key) {
+    const P = def.poses[key];
+    return def.poseScale * (P.scale || 1) * (1 + boss.lunge * (def.lungeGrow || 0));
   }
-
-  // 패턴 고르기: 비중(weight)대로 무작위, 직전 패턴은 제외
-  function chooseAttack(player) {
-    const kinds = Object.keys(def.patterns).filter(k => k !== boss.last);
-    let total = kinds.reduce((n, k) => n + (def.patterns[k].weight || 1), 0);
-    let r = Math.random() * total, kind = kinds[0];
-    for (const k of kinds) { r -= def.patterns[k].weight || 1; if (r <= 0) { kind = k; break; } }
-    boss.last = kind;
-    boss.timer = 999;   // 패턴이 끝나고 손이 모두 쉬면 다시 설정
-    if (kind === 'flute') startFlute();
-    else if (kind === 'vines') startVines();
-    else startSlamAttack(player);
+  function anchor() {
+    return { x: def.baseX + boss.shift, y: S().floorY(def.baseZ + boss.lunge) + boss.sink };
   }
-
-  function startSlamAttack(player) {
-    const p = slamParams();
-    // 플레이어에게 가까운 손으로 공격
-    const sorted = [...boss.hands].sort((a, b) => Math.abs(a.rest.x - player.x) - Math.abs(b.rest.x - player.x));
-    startSlam(sorted[0], player, 0);
-    if (p.double) startSlam(sorted[1], player, p.telegraph * 0.55);   // 2단계: 다른 손도 조금 늦게
-    boss.timer = 999; // 손이 모두 쉬면 다시 설정
+  // 그림 속 점(픽셀) → 화면 위치
+  function posePoint(key, mirror, px, py) {
+    const P = def.poses[key], s = scaleOf(key), a = anchor();
+    return { x: a.x + (mirror ? -1 : 1) * (px - P.cx) * s, y: a.y + (py - P.bottom) * s };
   }
 
   // ---------- 매 프레임 ----------
   function update(dt, player) {
     boss.time += dt;
     boss.flash = Math.max(0, boss.flash - dt);
+    boss.fade = Math.min(1, boss.fade + dt / boss.fadeDur);
+    if (boss.fade >= 1) boss.prev = null;
 
     if (boss.mode === 'dying') {
-      boss.sink += dt * 70;
+      boss.sink += dt * 60;
       boss.timer -= dt;
       if (Math.random() < 0.3) G.FX.shake(4, 0.1);
       if (boss.timer <= 0) { boss.mode = 'dead'; G.Game.win(); }
     }
 
     if (boss.mode === 'fight') {
-      for (const h of boss.hands) updateHand(h, dt, player);
-      if (boss.pattern) updatePattern(dt, player);
-      const allRest = boss.hands.every(h => h.state === 'rest') && !boss.pattern;
-      if (allRest) {
+      if (boss.slam) updateSlam(dt, player);
+      else if (boss.pattern) updatePattern(dt, player);
+      else {
+        // 쉬는 중: 숨쉬며 천천히 좌우로 흔들림
+        boss.shiftT = Math.sin(boss.time * 0.5) * 8;
+        boss.lungeT = 0;
+        boss.follow = 2.5;
+        setPose('idle', false, 0.3);
         if (boss.timer > 50) boss.timer = params(boss.last || 'slam').rest;
         boss.timer -= dt;
+        if (boss.queue > 0 && boss.timer > 0.15) boss.timer = 0.15;
         if (boss.timer <= 0 && !player.dead) chooseAttack(player);
       }
     }
 
-    // 공격하는 손의 목표 쪽으로 상체를 옮기고 기울임 (팔만 늘어나 보이지 않게)
-    let shiftTarget = 0;
-    for (const h of boss.hands) {
-      if ((h.state === 'raise' && h.t >= 0) || h.state === 'drop' || h.state === 'stuck') shiftTarget = shiftFor(h.aim.x);
-    }
-    boss.shift += (shiftTarget - boss.shift) * Math.min(1, dt * 3);
-    const leanTarget = boss.shift * 0.09;
-    boss.lean += (leanTarget - boss.lean) * Math.min(1, dt * 4);
+    const k = Math.min(1, dt * boss.follow);
+    boss.shift += (boss.shiftT - boss.shift) * k;
+    boss.lunge += (boss.lungeT - boss.lunge) * k;
 
-    // 자세 그림 전환: 패턴에 맞는 자세 그림이 있으면 부드럽게 바꿔 끼움
-    // 패턴 중: 그 패턴의 자세 그림 / 공격하지 않고 쉴 때: 'idle' 자세 그림 (그림 파일이 있을 때만)
-    const allRest = boss.hands.every(h => h.state === 'rest');
-    let want = null;
-    if (boss.pattern && def.poses && def.poses[boss.pattern.kind]) want = boss.pattern.kind;
-    else if (allRest && !boss.pattern && boss.mode === 'fight' && def.poses && def.poses.idle && G.Render.getImg(def.poses.idle.img)) want = 'idle';
-    if (want && boss.pose && boss.pose !== want && boss.poseK > 0) want = boss.pose;   // 다른 자세로 바로 넘어가지 않고 일단 리그로 돌아옴
-    if (want) boss.pose = want;
-    boss.poseK = Math.max(0, Math.min(1, boss.poseK + (want ? 1 : -1) * dt * 7));
-    if (!want && boss.poseK === 0) boss.pose = null;
-
-    boss.anim.play('idle');
-    boss.anim.update(dt);
-    const pose = Object.assign({}, boss.anim.pose);
-    pose.torso = (pose.torso || 0) + boss.lean;
-    pose.hipY = (pose.hipY || 0) + boss.sink;
-    // 머리는 플레이어 쪽을 살짝 봄
-    pose.head = (pose.head || 0) + Math.max(-10, Math.min(10, (boss.x - player.x) * 0.03));
-
-    // 팔: 손 위치에 맞춰 IK
-    let j = G.Rig.compute(SKELETON, pose, false);
-    const torsoWorld = j.torso.a;
-    const bx = boss.x + boss.shift;     // 몸통 중심 x (옆으로 움직인 만큼)
-    for (const h of boss.hands) {
-      const up = h.side === 'L' ? 'armL_up' : 'armR_up', low = h.side === 'L' ? 'armL_low' : 'armR_low';
-      const sh = { x: j[up].o.x, y: j[up].o.y };
-      const shakeX = h.shake > 0 ? (Math.random() - 0.5) * 4 : 0;
-      // 손 목표점: 공격 중에는 주먹 중심, 쉴 때는 바닥에 닿도록 낮춤
-      const handLift = def.fist.r * (1 - 0.8 * (h.restK == null ? 1 : h.restK));
-      const tgt = { x: h.x - bx + shakeX, y: S().screenY(h.z, h.h + handLift) - boss.y };
-      const r = G.Rig.ik2(sh, tgt, def.body.armUp, def.body.armLow, h.side === 'L' ? -1 : 1);
-      pose[up] = norm(r.a1 - torsoWorld - Math.PI) / D2R;
-      pose[low] = norm(r.a2 - r.a1) / D2R;
-      h.shake = Math.max(0, h.shake - dt);
-      // 쉬는 정도 (0 = 공격 중, 1 = 쉼). 쉴 때는 팔꿈치를 낭떠러지 끝에 걸치는 자세로 서서히 바뀜
-      const restTarget = h.state === 'rest' ? 1 : 0;
-      h.restK = (h.restK == null ? 1 : h.restK) + (restTarget - (h.restK == null ? 1 : h.restK)) * Math.min(1, dt * (restTarget ? 4 : 9));
-      h.ik = { S: sh, T: tgt, a1: r.a1 };
-    }
-    boss.joints = G.Rig.compute(SKELETON, pose, false);
-    placeArms();
-
-    // 소리 고리와 덩굴 (패턴이 끝나도 남은 것은 계속 움직임)
     updateRings(dt, player);
     updateLanes(dt, player);
-
-    // 바닥 표시 수명
     boss.marks.forEach(m => { if (m.kind !== 'warn') m.k += dt; });
     boss.marks = boss.marks.filter(m => m.kind === 'warn' || m.k < m.life);
   }
 
-  // 팔 위치 다듬기: 팔꿈치 위치를 정한 뒤 어깨→팔꿈치→손을 잇는다.
-  //  - 공격 중: IK가 정한 팔꿈치 (뼈 길이 그대로)
-  //  - 쉴 때: 팔꿈치를 낭떠러지 끝(바닥 안쪽 가장자리)에 걸치고, 아래팔은 바닥 위 앞쪽으로 내려놓음
-  //           앞쪽을 향한 아래팔은 원근감 때문에 짧아 보이도록 길이만 줄이고 굵기는 유지
-  function placeArms() {
-    const J = boss.joints, b = def.body, ledgeY = S().floorY(0) - boss.y - 4;
-    for (const h of boss.hands) {
-      if (!h.ik) continue;
-      const up = h.side === 'L' ? 'armL_up' : 'armR_up', low = h.side === 'L' ? 'armL_low' : 'armR_low';
-      const Sh = J[up].o, T = h.ik.T;
-      const Eik = { x: Sh.x - Math.sin(h.ik.a1) * b.armUp, y: Sh.y + Math.cos(h.ik.a1) * b.armUp };
-      const out = Math.sign(Sh.x) || (h.side === 'L' ? -1 : 1);
-      const Er = { x: Sh.x + out * (b.restElbowOut || 60), y: ledgeY };
-      const k = h.restK == null ? 1 : h.restK;
-      const E = { x: Eik.x + (Er.x - Eik.x) * k, y: Eik.y + (Er.y - Eik.y) * k };
-      const ang = (dx, dy) => Math.atan2(-dx, dy);
-      J[up].a = ang(E.x - Sh.x, E.y - Sh.y); J[up].len = Math.hypot(E.x - Sh.x, E.y - Sh.y); J[up].wLen = b.armUp;
-      J[low].o = { x: E.x, y: E.y };
-      J[low].a = ang(T.x - E.x, T.y - E.y); J[low].len = Math.hypot(T.x - E.x, T.y - E.y); J[low].wLen = b.armLow;
+  // 패턴 고르기: 비중(weight)대로 무작위, 직전 패턴은 제외. 연속 내려찍기가 남아 있으면 그것부터
+  function chooseAttack(player) {
+    let kind;
+    if (boss.queue > 0) { boss.queue--; kind = 'slam'; }
+    else {
+      const kinds = Object.keys(def.patterns).filter(k => k !== boss.last);
+      const total = kinds.reduce((n, k) => n + (def.patterns[k].weight || 1), 0);
+      let r = Math.random() * total; kind = kinds[0];
+      for (const k of kinds) { r -= def.patterns[k].weight || 1; if (r <= 0) { kind = k; break; } }
+      if (kind === 'slam' && params('slam').double) boss.queue = 1;   // 2단계: 반대쪽으로 한 번 더
+    }
+    boss.last = kind;
+    boss.timer = 999;   // 패턴이 끝나면 다시 설정
+    if (kind === 'flute') startFlute();
+    else if (kind === 'vines') startVines();
+    else startSlam(player);
+  }
+
+  // ---------- 내려찍기 ----------
+  // 플레이어 위치를 보고 어느 쪽 팔로, 몸을 얼마나 옮겨서, 얼마나 앞으로 숙여 칠지 계산
+  function aimSlam(slam, player) {
+    const P = def.poses.slam, D = G.CFG.DEPTH;
+    const z = Math.max(def.baseZ, Math.min(D - 8, player.z));
+    const lunge = z - def.baseZ;
+    const s = def.poseScale * (P.scale || 1) * (1 + lunge * (def.lungeGrow || 0));
+    const handDx = (P.hand[0] - P.cx) * s * slam.side;            // 몸 중심에서 손까지 (좌우 반전 포함)
+    let shift = player.x - def.baseX - handDx;
+    shift = Math.max(-def.maxShift, Math.min(def.maxShift, shift));
+    slam.aim = { x: def.baseX + shift + handDx, z, shift, lunge };
+  }
+
+  function startSlam(player) {
+    const p = params('slam');
+    // 플레이어가 보스 중심 오른쪽이면 그림 그대로(오른팔), 왼쪽이면 뒤집어서
+    let side = player.x >= def.baseX + boss.shift ? 1 : -1;
+    if (boss.queue === 0 && boss.slamSide && params('slam').double) side = -boss.slamSide;   // 연속 공격은 반대쪽 손
+    boss.slamSide = side;
+    const slam = { t: 0, phase: 'raise', p, side, mirror: side < 0 };
+    aimSlam(slam, player);
+    slam.mark = { x: slam.aim.x, z: slam.aim.z, r: p.radius, kind: 'warn', k: 0 };
+    boss.marks.push(slam.mark);
+    boss.slam = slam;
+    setPose('raise', slam.mirror, 0.18);
+  }
+
+  function updateSlam(dt, player) {
+    const s = boss.slam, p = s.p;
+    s.t += dt;
+    if (s.phase === 'raise') {
+      const u = Math.min(1, s.t / p.telegraph);
+      if (u < p.track && !player.dead) aimSlam(s, player);           // 앞부분 동안 플레이어를 따라 조준
+      s.mark.x = s.aim.x; s.mark.z = s.aim.z; s.mark.k = u;
+      boss.shiftT = s.aim.shift * 0.75;                                 // 치켜들며 그쪽으로 몸을 옮김
+      boss.lungeT = s.aim.lunge * 0.15 - 6 * u;                         // 살짝 뒤로 젖혀 힘을 모음
+      boss.follow = 4;
+      if (u >= 1) { s.phase = 'drop'; s.t = 0; setPose('slam', s.mirror, p.drop * 0.8); }
+    } else if (s.phase === 'drop') {
+      boss.shiftT = s.aim.shift; boss.lungeT = s.aim.lunge; boss.follow = 30;   // 몸을 던지듯 빠르게
+      if (s.t >= p.drop) impact(player);
+    } else if (s.phase === 'stuck') {
+      boss.follow = 6;
+      // 손 판정 위치를 그림 속 손에 맞춤
+      const P = def.poses.slam, h = posePoint('slam', s.mirror, P.hand[0], P.hand[1]);
+      Object.assign(boss.target, { x: h.x, z: def.baseZ + boss.lunge, h: 0 });
+      if (s.t >= p.stuck) { s.phase = 'back'; s.t = 0; boss.target.active = false; setPose('idle', false, p.recover * 0.7); }
+    } else if (s.phase === 'back') {
+      boss.shiftT = 0; boss.lungeT = 0; boss.follow = 3;
+      if (s.t >= p.recover) { boss.slam = null; boss.timer = boss.queue > 0 ? 0.1 : p.rest; }
     }
   }
 
-  function norm(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
-  function ease(u) { return u * u * (3 - 2 * u); }
-
-  function updateHand(h, dt, player) {
-    const p = h.params;
-    h.t += dt;
-    switch (h.state) {
-      case 'raise': {
-        if (h.t < 0) break;                       // 2단계 연속 공격의 대기
-        const u = Math.min(1, h.t / p.telegraph);
-        // 앞부분 동안은 플레이어를 따라 조준, 이후 고정
-        if (u < p.track && !player.dead) {
-          const a = clampTarget(h.side, player.x, player.z);
-          h.aim.x += (a.x - h.aim.x) * Math.min(1, dt * 6);
-          h.aim.z += (a.z - h.aim.z) * Math.min(1, dt * 6);
-          h.base = G.Stage.support(h.aim.x, h.aim.z, 9999);
-        }
-        h.mark.x = h.aim.x; h.mark.z = h.aim.z; h.mark.k = u;
-        // 1) 먼저 거의 제자리에서 크게 들어 올림 → 2) 공중에서 목표 위로 이동 → 3) 살짝 더 치켜들며 힘을 모음
-        const up = ease(Math.min(1, u / 0.35));
-        const move = ease(Math.max(0, Math.min(1, (u - 0.25) / 0.5)));
-        const windup = Math.max(0, (u - 0.75) / 0.25);
-        h.x = h.from.x + (h.aim.x - h.from.x) * move;
-        h.z = h.from.z + (h.aim.z - h.from.z) * move;
-        h.h = h.from.h + (p.lift * 0.85 - h.from.h) * up + (p.lift * 0.15 + h.base) * move + p.lift * 0.12 * windup;
-        if (u >= 1) { h.state = 'drop'; h.t = 0; }
-        break;
-      }
-      case 'drop': {
-        const u = Math.min(1, h.t / p.drop);
-        h.h = h.base + (p.lift * 1.12) * (1 - u * u);   // 점점 빨라지며 떨어짐 (기둥 위면 윗면까지)
-        if (u >= 1) impact(h, player);
-        break;
-      }
-      case 'stuck':
-        if (h.t >= p.stuck) {
-          h.state = 'back'; h.t = 0; h.target.active = false;
-          h.from = { x: h.x, z: h.z, h: 0 };
-        }
-        break;
-      case 'ctrl':                                 // 패턴이 위치를 직접 정함
-        break;
-      case 'rest':                                 // 숨쉬기에 맞춰 손가락 끝이 살짝 들썩임
-        h.h = 2 + 2 * Math.sin(boss.time * 1.96 + (h.side === 'L' ? 0 : 1.3));
-        break;
-      case 'back': {
-        const u = Math.min(1, h.t / p.recover), e = ease(u);
-        h.x = h.from.x + (h.rest.x - h.from.x) * e;
-        h.z = h.from.z + (h.rest.z - h.from.z) * e;
-        h.h = Math.sin(u * Math.PI) * 50;
-        if (u >= 1) { h.state = 'rest'; h.h = 0; }
-        break;
-      }
-    }
-    // 판정 위치 갱신
-    Object.assign(h.target, { x: h.x, z: h.z, h: h.h });
-  }
-
-  function impact(h, player) {
-    const p = h.params;
-    h.state = 'stuck'; h.t = 0; h.h = h.base || 0;
-    h.target.active = true;
-    boss.marks = boss.marks.filter(m => m !== h.mark);
-    boss.marks.push({ x: h.x, z: h.z, r: p.radius, kind: 'crack', k: 0, life: p.stuck + 0.4, base: h.base || 0 });
-    G.FX.shake(9, 0.25);
-    G.FX.ring(h.x, h.z, p.radius);
-    // 범위 안의 플레이어 피해 (깊이는 납작한 타원)
-    const dx = (player.x - h.x) / (p.radius + 10), dz = (player.z - h.z) / (p.radius * 0.55 + 8);
-    if (dx * dx + dz * dz < 1 && Math.abs(player.h - (h.base || 0)) < 60) G.Combat.hurtPlayer(player, p.dmg, h.x, h.z);
-  }
-
-  // ---------- 손을 패턴이 직접 움직일 때 ----------
-  function handTo(h, x, z, height, u) {   // from에서 (x, z, height)로 u(0~1)만큼
-    const e = ease(Math.min(1, Math.max(0, u)));
-    h.x = h.from.x + (x - h.from.x) * e;
-    h.z = h.from.z + (z - h.from.z) * e;
-    h.h = h.from.h + (height - h.from.h) * e;
-  }
-  function takeHands() { for (const h of boss.hands) { h.state = 'ctrl'; h.from = { x: h.x, z: h.z, h: h.h }; } }
-  function releaseHands() {
-    for (const h of boss.hands) { h.state = 'back'; h.t = 0; h.params = slamParams(); h.from = { x: h.x, z: h.z, h: h.h }; }
+  function impact(player) {
+    const s = boss.slam, p = s.p;
+    s.phase = 'stuck'; s.t = 0;
+    boss.shift = s.aim.shift; boss.lunge = s.aim.lunge;              // 정확히 그 자리에
+    const P = def.poses.slam, h = posePoint('slam', s.mirror, P.hand[0], P.hand[1]);
+    const z = def.baseZ + boss.lunge;
+    boss.marks = boss.marks.filter(m => m !== s.mark);
+    boss.marks.push({ x: h.x, z, r: p.radius, kind: 'crack', k: 0, life: p.stuck + 0.4 });
+    Object.assign(boss.target, { x: h.x, z, h: 0, active: true });
+    G.FX.shake(10, 0.28);
+    G.FX.ring(h.x, z, p.radius);
+    G.FX.spark(h.x, S().floorY(z) - 6, 1, 1.2); G.FX.spark(h.x, S().floorY(z) - 6, -1, 1.2);
+    const dx = (player.x - h.x) / (p.radius + 10), dz = (player.z - z) / (p.radius * 0.55 + 8);
+    if (dx * dx + dz * dz < 1 && player.h < 60) G.Combat.hurtPlayer(player, p.dmg, h.x, z);
   }
 
   // ---------- 피리 충격파 ----------
   function startFlute() {
-    const p = params('flute');
-    boss.pattern = { kind: 'flute', t: 0, p, fired: 0 };
-    // 손은 바닥을 짚은 채로 두고, 피리는 입 앞에 마법처럼 나타남 (팔을 접으면 그림이 얼굴을 가림)
+    boss.pattern = { kind: 'flute', t: 0, p: params('flute'), fired: 0 };
+    boss.shiftT = 0; boss.lungeT = -4; boss.follow = 3;
+    setPose('flute', false, 0.25);
   }
 
   // ---------- 가시덩굴 ----------
   function startVines() {
     const p = params('vines');
-    // 줄 번호를 섞어서 앞에서부터 hitLanes개 고름 → 나머지가 안전한 줄
     const ids = [...Array(p.lanes).keys()].sort(() => Math.random() - 0.5).slice(0, p.hitLanes);
     const D = G.CFG.DEPTH, w = D / p.lanes;
-    boss.lanes = ids.map(i => ({ z0: i * w, z1: (i + 1) * w, t: 0, p, state: 'warn', hit: false,
-                                  seed: Math.random() * 1000 }));
+    boss.lanes = ids.map(i => ({ z0: i * w, z1: (i + 1) * w, t: 0, p, state: 'warn', hit: false, seed: Math.random() * 1000 }));
     boss.pattern = { kind: 'vines', t: 0, p, pressed: false };
-    takeHands();
+    boss.shiftT = 0; boss.lungeT = 4; boss.follow = 3;
+    setPose('press', false, 0.25);                                     // 웅크려 힘을 모음
   }
 
   function updatePattern(dt, player) {
@@ -369,37 +239,30 @@ G.Boss = (function () {
       if (P.t > p.telegraph) {
         const k = Math.floor((P.t - p.telegraph) / p.gap);
         while (P.fired <= k && P.fired < p.rings) {
-          boss.rings.push({ r: 30, p });
+          boss.rings.push({ r: 30, p, x: def.baseX + boss.shift });
           P.fired++;
           G.FX.shake(3, 0.12);
         }
-        if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) boss.pattern = null;
+        if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) { boss.pattern = null; boss.timer = p.rest; }
       }
     } else if (P.kind === 'vines') {
-      // 손을 들었다가 예고 끝에 땅을 짚음
-      const pressAt = p.telegraph;
-      boss.hands.forEach(h => {
-        const up = Math.min(1, P.t / (pressAt * 0.7));
-        const lift = P.t < pressAt * 0.7 ? 80 * up : 80 * Math.max(0, 1 - (P.t - pressAt * 0.7) / (pressAt * 0.3));
-        h.x = h.from.x; h.z = h.from.z; h.h = lift;
-      });
-      if (!P.pressed && P.t >= pressAt) {
+      if (!P.pressed && P.t >= p.telegraph) {
         P.pressed = true;
+        setPose('press_glow', false, 0.06);                            // 초록 기운이 터짐
+        boss.lungeT = 10; boss.follow = 12;
         G.FX.shake(7, 0.25);
-        boss.hands.forEach(h => G.FX.ring(h.x, h.z, 50));
       }
-      if (P.t >= pressAt + 0.25) { boss.pattern = null; releaseHands(); }
+      if (P.t >= p.telegraph + p.active) { boss.pattern = null; boss.timer = p.rest; }
     }
   }
 
   function updateRings(dt, player) {
     for (const r of boss.rings) {
       r.r += r.p.speed * dt;
-      // 플레이어와 고리 사이 거리 (깊이는 squash배)
-      const dx = player.x - boss.x, dz = (player.z + 4) * r.p.squash;
+      const dx = player.x - r.x, dz = (player.z + 4) * r.p.squash;
       const d = Math.hypot(dx, dz);
       if (!r.hitDone && Math.abs(d - r.r) < r.p.band && player.h < r.p.safeHeight) {
-        if (G.Combat.hurtPlayer(player, r.p.dmg, boss.x, -40)) r.hitDone = true;
+        if (G.Combat.hurtPlayer(player, r.p.dmg, r.x, -40)) r.hitDone = true;
       }
     }
     boss.rings = boss.rings.filter(r => r.r < 900);
@@ -419,122 +282,96 @@ G.Boss = (function () {
     boss.lanes = boss.lanes.filter(L => L.state !== 'gone');
   }
 
-  function hurtBoss(dmg, hand) {
+  function hurtBoss(dmg) {
     if (boss.mode !== 'fight') return;
     boss.hp = Math.max(0, boss.hp - dmg);
     boss.flash = 0.08;
-    hand.shake = 0.15;
     updateUI();
     if (boss.hp <= 0) {
       boss.mode = 'dying';
       boss.timer = 2.4;
-      for (const h of boss.hands) { h.target.active = false; }
-      boss.marks = []; boss.rings = []; boss.lanes = []; boss.pattern = null;
+      boss.target.active = false;
+      boss.slam = null; boss.pattern = null;
+      boss.marks = []; boss.rings = []; boss.lanes = [];
+      setPose('idle', false, 0.3);
       G.FX.shake(14, 0.6);
     }
   }
 
   // ---------- 그리기 ----------
-  // 자세 그림 위치: 그림 속 기준점(anchor, 픽셀)을 보스 목 위치에 맞춤
-  function poseRect() {
-    const P = def.poses[boss.pose], im = G.Render.getImg(P.img);
-    if (!im) return null;
-    const k = P.width / im.naturalWidth;
-    const neckX = boss.x + boss.shift, neckY = boss.y + boss.joints.torso.o.y - def.body.torso + (P.offsetY || 0);
-    return { im, k, x: neckX - P.anchor[0] * k, y: neckY - P.anchor[1] * k, w: P.width, h: im.naturalHeight * k };
+  function drawPose(ctx, pose, alpha) {
+    const P = def.poses[pose.key], im = P && G.Render.getImg(P.img);
+    if (!im || alpha <= 0) return;
+    const s = scaleOf(pose.key), a = anchor();
+    const breathe = 1 + 0.012 * Math.sin(boss.time * 2);
+    ctx.save();
+    ctx.globalAlpha = alpha * (boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 220) : 1);
+    ctx.translate(a.x, a.y);
+    ctx.scale(pose.mirror ? -1 : 1, breathe);
+    ctx.drawImage(im, -P.cx * s, -P.bottom * s, im.naturalWidth * s, im.naturalHeight * s);
+    if (boss.flash > 0) {      // 맞을 때 번쩍
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(im, -P.cx * s, -P.bottom * s, im.naturalWidth * s, im.naturalHeight * s);
+    }
+    ctx.restore();
   }
-  // 낭떠러지 뒤에 있는 몸통·머리 (바닥보다 먼저)
+
+  // 바닥보다 먼저: 보스 뒤에서 비치는 기운
   function drawBack(ctx) {
-    if (!boss.joints) return;
-    const skin = def.skin;
-    // 뒤에서 비치는 기운
-    const g = ctx.createRadialGradient(boss.x, boss.y - 160, 40, boss.x, boss.y - 160, 340);
+    if (!def) return;
+    const a = anchor(), cy = a.y - 160;
+    const g = ctx.createRadialGradient(a.x, cy, 40, a.x, cy, 340);
     g.addColorStop(0, `rgba(${def.theme.moon}, 0.10)`);
     g.addColorStop(1, `rgba(${def.theme.moon}, 0)`);
     ctx.fillStyle = g;
-    ctx.fillRect(boss.x - 360, boss.y - 520, 720, 520);
-    skin.head.pulse = 0.65 + 0.35 * Math.sin(boss.time * 2.2);
-    ctx.save();
-    const fade = boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 200) : 1;
-    const pr = boss.pose && boss.poseK > 0 ? poseRect() : null;
-    const rigK = pr ? 1 - boss.poseK : 1;
-    if (rigK > 0) {
-      ctx.globalAlpha = fade * rigK;
-      G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x + boss.shift, boss.y, 1);
-    }
-    if (pr) {                // 자세 그림 (피리 불기 등)
-      ctx.globalAlpha = fade * boss.poseK;
-      ctx.drawImage(pr.im, pr.x, pr.y, pr.w, pr.h);
-    }
-    if (boss.flash > 0) {   // 맞을 때 몸 전체가 번쩍
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.35;
-      G.Render.drawRig(ctx, boss.joints, skin, BACK_ORDER, boss.x + boss.shift, boss.y, 1);
-    }
-    ctx.restore();
+    ctx.fillRect(a.x - 360, cy - 360, 720, 720);
   }
 
-  // 바닥 위: 예고 원, 균열, 덩굴 예고, 소리 고리, 손 그림자, 아래팔과 손
+  // 바닥 위: 예고 원, 균열, 덩굴 예고, 소리 고리 → 보스 그림 → 때릴 수 있는 손 표시
   function drawFront(ctx) {
-    if (!boss.joints) return;
+    if (!def) return;
     for (const m of boss.marks) drawMark(ctx, m);
     for (const L of boss.lanes) if (L.state === 'warn') drawLaneWarn(ctx, L);
     for (const r of boss.rings) drawRing(ctx, r);
-    const rigK = boss.pose ? 1 - boss.poseK : 1;     // 자세 그림이 나오는 동안은 팔 파츠를 숨김
-    for (const h of boss.hands) {
-      const r = def.fist.r * (1 + Math.min(1, h.h / 200));
-      G.Render.shadow(ctx, h.x, S().screenY(h.z, h.base && h.state !== 'rest' && h.state !== 'back' ? h.base : 0), r * 1.3, (0.55 - Math.min(0.35, h.h / 500)) * rigK);
-    }
-    ctx.save();
-    ctx.globalAlpha = (boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 200) : 1) * rigK;
-    if (rigK > 0) G.Render.drawRig(ctx, boss.joints, def.skin, FRONT_ORDER, boss.x + boss.shift, boss.y, 1);
-    ctx.globalAlpha = 1;
-    if (boss.pattern && boss.pattern.kind === 'flute') drawFlute(ctx, boss.pattern);
-    // 때릴 수 있는 손은 테두리로 표시
-    for (const h of boss.hands) {
-      if (!h.target.active) continue;
-      const y = S().screenY(h.z, def.fist.r);
+    // 발밑 그림자
+    const a = anchor();
+    G.Render.shadow(ctx, a.x, a.y + 4, 150, 0.35);
+    if (boss.prev) drawPose(ctx, boss.prev, 1 - boss.fade);
+    drawPose(ctx, boss.cur, boss.prev ? boss.fade : 1);
+    if (boss.pattern && boss.pattern.kind === 'flute') drawFluteGlow(ctx, boss.pattern);
+    if (boss.pattern && boss.pattern.kind === 'vines' && boss.pattern.pressed) drawPressGlow(ctx, boss.pattern);
+    if (boss.target && boss.target.active) {
+      const t = boss.target, y = S().floorY(t.z) - 18;
+      ctx.save();
       ctx.strokeStyle = `rgba(255, 230, 150, ${0.5 + 0.4 * Math.sin(boss.time * 10)})`;
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(h.x, y, def.fist.r + 8, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(t.x, y, t.w * 0.75, t.w * 0.45, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
-    ctx.restore();
   }
 
-  // 피리(시링크스): 길이가 다른 관을 나란히 묶은 것. 두 손 사이, 입 앞
-  function drawFlute(ctx, P) {
-    // 입 위치: 머리 뼈의 아래쪽 (목에서 머리 길이의 15%)
-    const hd = boss.joints.head, m = 0.15 * hd.len;
-    let cx = boss.x + boss.shift + hd.o.x - Math.sin(hd.a) * m, cy = boss.y + hd.o.y + Math.cos(hd.a) * m;
-    const pose = def.poses && def.poses.flute;
-    const pr = pose && boss.pose === 'flute' ? poseRect() : null;
-    if (pr) {                // 피리 부는 그림이 있으면: 그림 속 피리 끝에서 기운이 모임
-      cx = pr.x + pose.glow[0] * pr.k; cy = pr.y + pose.glow[1] * pr.k;
-      if (P.t < P.p.telegraph) fluteGlow(ctx, cx, cy, P.t / P.p.telegraph);
-      return;
-    }
-    const k = Math.min(1, P.t / 0.3);
-    ctx.save();
-    ctx.globalAlpha = k;
-    for (let i = 0; i < 7; i++) {
-      const x = cx - 42 + i * 12, len = 70 - i * 6;
-      ctx.fillStyle = i % 2 ? '#b08a52' : '#c49a5e';
-      ctx.fillRect(x, cy - 10, 10, len);
-      ctx.strokeStyle = '#2a1e12'; ctx.lineWidth = 1.5; ctx.strokeRect(x, cy - 10, 10, len);
-    }
-    ctx.fillStyle = '#5e8a3a'; ctx.fillRect(cx - 46, cy + 6, 92, 7);       // 묶은 덩굴
-    ctx.restore();
-    if (P.t < P.p.telegraph) fluteGlow(ctx, cx, cy, P.t / P.p.telegraph);
+  // 피리: 그림 속 피리 끝에 초록 기운이 모임
+  function drawFluteGlow(ctx, P) {
+    if (P.t >= P.p.telegraph) return;
+    const g = def.poses.flute.glow, pt = posePoint('flute', false, g[0], g[1]);
+    glow(ctx, pt.x, pt.y, P.t / P.p.telegraph, 30, 60);
   }
-  // 숨 들이쉬는 동안 초록 기운이 모임
-  function fluteGlow(ctx, cx, cy, u) {
+  // 땅 누르기: 양손에서 초록 빛이 번쩍
+  function drawPressGlow(ctx, P) {
+    const u = Math.max(0, 1 - (P.t - P.p.telegraph) / P.p.active);
+    const a = anchor();
+    glow(ctx, a.x, a.y - 10, u, 80, 140);
+  }
+  function glow(ctx, x, y, u, r0, r1) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30 + 60 * u);
+    const r = r0 + r1 * u;
+    const g = ctx.createRadialGradient(x, y, 2, x, y, r);
     g.addColorStop(0, `rgba(170, 255, 140, ${0.5 * u})`);
     g.addColorStop(1, 'rgba(170, 255, 140, 0)');
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(cx, cy, 30 + 60 * u, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
 
@@ -542,13 +379,13 @@ G.Boss = (function () {
   function drawRing(ctx, r) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const a = Math.max(0, 1 - r.r / 900);
+    const a = Math.max(0, 1 - r.r / 900), y = S().floorY(-4);
     ctx.strokeStyle = `rgba(160, 255, 150, ${0.75 * a})`;
     ctx.lineWidth = r.p.band * 1.1;
-    ctx.beginPath(); ctx.ellipse(boss.x, S().floorY(-4), r.r, r.r / r.p.squash, 0, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(r.x, y, r.r, r.r / r.p.squash, 0, 0, Math.PI); ctx.stroke();
     ctx.strokeStyle = `rgba(240, 255, 230, ${0.9 * a})`;
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(boss.x, S().floorY(-4), r.r, r.r / r.p.squash, 0, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(r.x, y, r.r, r.r / r.p.squash, 0, 0, Math.PI); ctx.stroke();
     ctx.restore();
   }
 
@@ -586,22 +423,21 @@ G.Boss = (function () {
   }
 
   function drawMark(ctx, m) {
-    const base = m.hand ? (m.hand.base || 0) : (m.base || 0);   // 기둥 위를 칠 때는 기둥 윗면에 표시
-    const y = S().screenY(m.z, base), rx = m.r, rz = m.r * 0.55;
+    const y = S().floorY(m.z), rx = m.r, rz = m.r * 0.55;
     if (m.kind === 'warn') {
       ctx.save();
       ctx.fillStyle = `rgba(220, 40, 30, ${0.12 + 0.18 * m.k})`;
       ctx.beginPath(); ctx.ellipse(m.x, y, rx, rz, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = `rgba(255, 60, 40, ${0.35})`;           // 차오르는 안쪽 원 = 남은 시간
+      ctx.fillStyle = 'rgba(255, 60, 40, .35)';                 // 차오르는 안쪽 원 = 남은 시간
       ctx.beginPath(); ctx.ellipse(m.x, y, rx * m.k, rz * m.k, 0, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 90, 70, .9)';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(m.x, y, rx, rz, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     } else {
-      const a = Math.max(0, 1 - m.k / m.life);
+      const al = Math.max(0, 1 - m.k / m.life);
       ctx.save();
-      ctx.strokeStyle = `rgba(20, 14, 10, ${0.7 * a})`;
+      ctx.strokeStyle = `rgba(20, 14, 10, ${0.7 * al})`;
       ctx.lineWidth = 2.5;
       for (let i = 0; i < 7; i++) {
         const ang = i / 7 * Math.PI * 2 + 0.4;
@@ -626,8 +462,8 @@ G.Boss = (function () {
   // 개발 확인용: 콘솔에서 G.Boss.force('flute') 처럼 특정 패턴을 바로 실행
   function force(kind, player) {
     boss.last = kind; boss.timer = 999;
-    if (kind === 'flute') startFlute(); else if (kind === 'vines') startVines(); else startSlamAttack(player || G.player);
+    if (kind === 'flute') startFlute(); else if (kind === 'vines') startVines(); else startSlam(player || G.player);
   }
 
-  return { state: boss, load, reset, update, drawBack, drawFront, drawables, updateUI, force, get def() { return def; } };
+  return { state: boss, load, reset, update, drawBack, drawFront, drawables, updateUI, force, setPose, get def() { return def; } };
 })();
