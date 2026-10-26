@@ -29,9 +29,11 @@ G.Render = (function () {
     return rec.ok ? rec.im : null;
   }
 
-  function drawImagePart(ctx, len, part, im) {
+  // wLen: 가로 폭 기준 길이 (뼈가 원근 때문에 짧아져도 굵기는 유지)
+  function drawImagePart(ctx, len, part, im, wLen) {
     const k = (len * (part.lenMul || 1)) / im.naturalHeight;
-    const w = im.naturalWidth * k * (part.widthMul || 1), h = im.naturalHeight * k;
+    const kw = ((wLen || len) * (part.lenMul || 1)) / im.naturalHeight;
+    const w = im.naturalWidth * kw * (part.widthMul || 1), h = im.naturalHeight * k;
     const [ox, oy] = part.offset || [0, 0];
     ctx.save();
     if (part.anchor === 'bottom') {
@@ -45,9 +47,9 @@ G.Render = (function () {
     ctx.restore();
   }
 
-  function drawPart(ctx, len, part) {
+  function drawPart(ctx, len, part, wLen) {
     const im = part.img && getImg(part.img);
-    if (im) drawImagePart(ctx, len, part, im);
+    if (im) drawImagePart(ctx, len, part, im, wLen);
     else SHAPES[part.shape](ctx, len, part);
   }
 
@@ -355,7 +357,7 @@ G.Render = (function () {
       const part = skin[name];
       const j = joints[name];
       if (!part || !j) continue;
-      inBone(ctx, j, len => drawPart(ctx, len, part));
+      inBone(ctx, j, len => drawPart(ctx, len, part, j.wLen));
     }
     ctx.restore();
   }

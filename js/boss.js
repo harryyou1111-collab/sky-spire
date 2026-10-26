@@ -214,13 +214,20 @@ G.Boss = (function () {
       const up = h.side === 'L' ? 'armL_up' : 'armR_up', low = h.side === 'L' ? 'armL_low' : 'armR_low';
       const sh = { x: j[up].o.x, y: j[up].o.y };
       const shakeX = h.shake > 0 ? (Math.random() - 0.5) * 4 : 0;
-      const tgt = { x: h.x - bx + shakeX, y: S().screenY(h.z, h.h + def.fist.r) - boss.y };
+      // 손 목표점: 공격 중에는 주먹 중심, 쉴 때는 바닥에 닿도록 낮춤
+      const handLift = def.fist.r * (1 - 0.8 * (h.restK == null ? 1 : h.restK));
+      const tgt = { x: h.x - bx + shakeX, y: S().screenY(h.z, h.h + handLift) - boss.y };
       const r = G.Rig.ik2(sh, tgt, def.body.armUp, def.body.armLow, h.side === 'L' ? -1 : 1);
       pose[up] = norm(r.a1 - torsoWorld - Math.PI) / D2R;
       pose[low] = norm(r.a2 - r.a1) / D2R;
       h.shake = Math.max(0, h.shake - dt);
+      // 쉬는 정도 (0 = 공격 중, 1 = 쉼). 쉴 때는 팔꿈치를 낭떠러지 끝에 걸치는 자세로 서서히 바뀜
+      const restTarget = h.state === 'rest' ? 1 : 0;
+      h.restK = (h.restK == null ? 1 : h.restK) + (restTarget - (h.restK == null ? 1 : h.restK)) * Math.min(1, dt * (restTarget ? 4 : 9));
+      h.ik = { S: sh, T: tgt, a1: r.a1 };
     }
     boss.joints = G.Rig.compute(SKELETON, pose, false);
+    placeArms();
 
     // 소리 고리와 덩굴 (패턴이 끝나도 남은 것은 계속 움직임)
     updateRings(dt, player);
@@ -229,6 +236,28 @@ G.Boss = (function () {
     // 바닥 표시 수명
     boss.marks.forEach(m => { if (m.kind !== 'warn') m.k += dt; });
     boss.marks = boss.marks.filter(m => m.kind === 'warn' || m.k < m.life);
+  }
+
+  // 팔 위치 다듬기: 팔꿈치 위치를 정한 뒤 어깨→팔꿈치→손을 잇는다.
+  //  - 공격 중: IK가 정한 팔꿈치 (뼈 길이 그대로)
+  //  - 쉴 때: 팔꿈치를 낭떠러지 끝(바닥 안쪽 가장자리)에 걸치고, 아래팔은 바닥 위 앞쪽으로 내려놓음
+  //           앞쪽을 향한 아래팔은 원근감 때문에 짧아 보이도록 길이만 줄이고 굵기는 유지
+  function placeArms() {
+    const J = boss.joints, b = def.body, ledgeY = S().floorY(0) - boss.y - 4;
+    for (const h of boss.hands) {
+      if (!h.ik) continue;
+      const up = h.side === 'L' ? 'armL_up' : 'armR_up', low = h.side === 'L' ? 'armL_low' : 'armR_low';
+      const Sh = J[up].o, T = h.ik.T;
+      const Eik = { x: Sh.x - Math.sin(h.ik.a1) * b.armUp, y: Sh.y + Math.cos(h.ik.a1) * b.armUp };
+      const out = Math.sign(Sh.x) || (h.side === 'L' ? -1 : 1);
+      const Er = { x: Sh.x + out * (b.restElbowOut || 60), y: ledgeY };
+      const k = h.restK == null ? 1 : h.restK;
+      const E = { x: Eik.x + (Er.x - Eik.x) * k, y: Eik.y + (Er.y - Eik.y) * k };
+      const ang = (dx, dy) => Math.atan2(-dx, dy);
+      J[up].a = ang(E.x - Sh.x, E.y - Sh.y); J[up].len = Math.hypot(E.x - Sh.x, E.y - Sh.y); J[up].wLen = b.armUp;
+      J[low].o = { x: E.x, y: E.y };
+      J[low].a = ang(T.x - E.x, T.y - E.y); J[low].len = Math.hypot(T.x - E.x, T.y - E.y); J[low].wLen = b.armLow;
+    }
   }
 
   function norm(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }

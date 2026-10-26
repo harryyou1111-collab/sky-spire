@@ -22,9 +22,10 @@ G.BossDefs = {
 
     // shoulderDrop: 몸통 꼭대기(목)에서 어깨 관절까지 내려온 거리 — 그림의 어깨 위치에 맞춤
     // maxShift: 멀리 있는 플레이어를 칠 때 상체가 그쪽으로 옮겨가는 최대 거리 (팔만 늘어나 보이지 않게)
-    body: { torso: 180, head: 123, armUp: 108, armLow: 116, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48, maxShift: 90 },
+    // restElbowOut: 쉴 때 팔꿈치가 어깨에서 바깥으로 벌어지는 거리 (팔꿈치는 낭떠러지 끝에 걸침)
+    body: { torso: 180, head: 123, armUp: 108, armLow: 116, shoulderX: 91, shoulderDrop: 52, hipBelowEdge: 48, maxShift: 90, restElbowOut: 70 },
     // 쉴 때 손 위치 (보스 중심 기준 x, 깊이 z). 전투장 끝(낭떠러지 가장자리)에 팔을 걸치고 내려다보는 자세
-    restHands: [{ dx: -150, z: 26 }, { dx: 150, z: 26 }],
+    restHands: [{ dx: -150, z: 55 }, { dx: 150, z: 55 }],
     fist: { r: 34 },                                         // 주먹 크기 (그림자·판정용)
 
     skin: {
