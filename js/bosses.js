@@ -41,14 +41,14 @@ G.BossDefs = {
     //   seg: 게임 단계별로 재생할 장면 구간 [시작, 끝]
     clips: {
       slam: {
-        sheets: [0, 1, 2, 3, 4].map(i => `assets/bosses/pan/clips/slam_${i}.webp`),
+        sheets: [0, 1, 2, 3, 4].map(i => `assets/bosses/pan/slam_${i}.webp`),
         fw: 626, fh: 434, cols: 4, per: 16,
         cx: 272, bottom: 408, scale: 1.473, hand: [403, 397],
         seg: { raise: [1, 22], drop: [22, 30], stuck: [30, 48], recover: [48, 69] },
       },
       // 피리: 영상 가운데의 커다란 초록 연기 부분은 잘라내고, 소리 고리는 코드로 그림
       flute: {
-        sheets: [0, 1, 2].map(i => `assets/bosses/pan/clips/flute_${i}.webp`),
+        sheets: [0, 1, 2].map(i => `assets/bosses/pan/flute_${i}.webp`),
         fw: 626, fh: 434, cols: 4, per: 16,
         cx: 272, bottom: 408, scale: 1.473,
         glow: [[21, 128], [274, 126]],               // 피리 끝, 입
@@ -56,7 +56,7 @@ G.BossDefs = {
       },
       // 가시덩굴: 두 팔을 들었다가 양손으로 땅을 내리침. 영상 뒷부분(다시 팔을 드는 동작)은 잘라냄
       vines: {
-        sheets: [0, 1, 2].map(i => `assets/bosses/pan/clips/vines_${i}.webp`),
+        sheets: [0, 1, 2].map(i => `assets/bosses/pan/vines_${i}.webp`),
         fw: 620, fh: 553, cols: 4, per: 16,
         cx: 303, bottom: 530, scale: 1.472,
         glow: [[65, 525], [539, 525]],               // 두 손
