@@ -49,6 +49,8 @@
     canvas.width = Math.round(window.innerWidth * dpr);
     canvas.height = Math.round(window.innerHeight * dpr);
     scale = canvas.height / CFG.VIEW_H;
+    G.viewScale = scale;                                   // 3D 캐릭터 그림 선명도용
+    if (G.Hero3D && G.Hero3D.ready) G.Hero3D.resize();
     viewW = canvas.width / scale;
   }
   window.addEventListener('resize', resize);

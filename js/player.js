@@ -443,6 +443,7 @@ G.Player = (function () {
     p.anim.update(dt, speed);
     p.joints = G.Rig.compute(SKELETON, p.anim.pose, p.onGround);
     p.sy = G.Stage.screenY(p.z, p.h);
+    if (G.Hero3D) G.Hero3D.update(dt, p);      // 3D 캐릭터 (불러온 경우에만)
 
     // 검 궤적: 타격 직전부터 휘두른 직후까지 기록 (화면 좌표)
     if (p.atk) {
@@ -455,7 +456,7 @@ G.Player = (function () {
       }
     }
     // 대시 잔상
-    if (p.dash) {
+    if (p.dash && !(G.Hero3D && G.Hero3D.ready)) {
       p.ghostT -= dt;
       if (p.ghostT <= 0) {
         G.FX.ghost({ joints: p.joints, x: p.x, y: p.sy, facing: p.facing });
@@ -481,7 +482,8 @@ G.Player = (function () {
     const blink = p.iframe > 0 && !p.dash && !p.dead && Math.floor(p.iframe / 0.07) % 2 === 0;
     ctx.save();
     if (blink) ctx.globalAlpha = 0.35;
-    G.Render.drawRig(ctx, p.joints, SKIN, ORDER, p.x, p.sy, p.facing);
+    // 3D 캐릭터가 준비됐으면 그것을, 아니면 예전 도형 캐릭터를 그림
+    if (!(G.Hero3D && G.Hero3D.draw(ctx, p.x, p.sy))) G.Render.drawRig(ctx, p.joints, SKIN, ORDER, p.x, p.sy, p.facing);
     ctx.restore();
     if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.sy, p.facing);
   }
