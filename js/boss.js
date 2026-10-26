@@ -46,7 +46,7 @@ G.Boss = (function () {
 
   function reset() {
     Object.assign(boss, {
-      hp: def.hp, maxHp: def.hp, mode: 'fight', timer: 1.5, time: 0, flash: 0, sink: 0,
+      hp: def.hp, maxHp: def.hp, mode: 'fight', timer: 1.5, time: 0, flash: 0, sink: 0, sinkV: 0,
       swell: 0, swellT: 0,
       cur: { key: 'idle', mirror: false }, prev: null, fade: 1, frame: 0, idleMirror: false,
       slam: null, queue: 0, pattern: null, marks: [], rings: [], lanes: [], last: null,
@@ -104,9 +104,15 @@ G.Boss = (function () {
     if (boss.fade >= 1) boss.prev = null;
 
     if (boss.mode === 'dying') {
-      boss.sink += dt * 60;
+      // 전투장 끝 너머로 무너지며 가라앉음 (바닥선 아래는 가려져서 안 보임)
+      boss.sinkV = (boss.sinkV || 0) + dt * 260;
+      boss.sink += boss.sinkV * dt;
       boss.timer -= dt;
       if (Math.random() < 0.3) G.FX.shake(4, 0.1);
+      if (boss.sink < 300 && Math.random() < 0.25) {
+        const x = def.baseX + (Math.random() - 0.5) * 300, y = S().floorY(def.baseZ) - 4;
+        G.FX.spark(x, y, Math.random() < 0.5 ? 1 : -1, 0.6);
+      }
       if (boss.timer <= 0) { boss.mode = 'dead'; G.Game.win(); }
     }
 
@@ -174,10 +180,9 @@ G.Boss = (function () {
   function startSlam(player) {
     const p = params('slam');
     // 플레이어가 보스 중심 오른쪽이면 그림 그대로(오른팔), 왼쪽이면 뒤집어서
-    let side = player.x >= def.baseX ? 1 : -1;
-    if (boss.queue === 0 && boss.slamSide && params('slam').double) side = -boss.slamSide;   // 연속 공격은 반대쪽 손
-    boss.slamSide = side;
-    const slam = { t: 0, phase: 'raise', p, side, mirror: side < 0 };
+    // 그림을 좌우로 뒤집지 않음 (뒤집으면 한쪽 어깨에만 있는 덩굴 장식이 반대로 가서 어색함)
+    // 항상 같은 팔로 치고, 균열 방향으로 왼쪽·오른쪽 어디든 노림
+    const slam = { t: 0, phase: 'raise', p, side: 1, mirror: false };
     aimSlam(slam, player);
     slam.mark = Object.assign({ kind: 'line', k: 0 }, slam.line);
     boss.marks.push(slam.mark);
@@ -366,7 +371,13 @@ G.Boss = (function () {
     if (!im) return;
     const breathe = 1 + 0.012 * Math.sin(boss.time * 2) + 0.045 * boss.swell;
     ctx.save();
-    ctx.globalAlpha = alpha * (boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 220) : 1);
+    ctx.globalAlpha = alpha;
+    if (boss.mode !== 'fight') {
+      // 쓰러질 때: 전투장 안쪽 끝(바닥선)보다 아래는 그리지 않음 → 벽 너머로 넘어가는 것처럼
+      ctx.beginPath();
+      ctx.rect(-500, -1000, G.CFG.ARENA_W + 1000, S().floorY(def.baseZ) + 1000);
+      ctx.clip();
+    }
     ctx.translate(a.x, a.y);
     ctx.scale(pose.mirror ? -1 : 1, breathe);
     ctx.drawImage(im, sx, sy, w, h, -P.cx * s, -P.bottom * s, w * s, h * s);
@@ -396,8 +407,8 @@ G.Boss = (function () {
     for (const L of boss.lanes) if (L.state === 'warn') drawLaneWarn(ctx, L);
     for (const r of boss.rings) drawRing(ctx, r);
     // 발밑 그림자
-    const a = anchor();
-    G.Render.shadow(ctx, a.x, a.y + 4, 150, 0.35);
+    const by = S().floorY(def.baseZ);       // 그림자는 바닥에 고정 (쓰러질 때는 옅어짐)
+    G.Render.shadow(ctx, def.baseX, by + 4, 150, 0.35 * Math.max(0, 1 - boss.sink / 150));
     // 새 자세를 온전히 그리고, 앞 자세를 위에 겹쳐 서서히 지움 (둘 다 반투명이면 몸이 유령처럼 비쳐 보임)
     drawPose(ctx, boss.cur, 1);
     if (boss.prev) drawPose(ctx, boss.prev, 1 - boss.fade);
