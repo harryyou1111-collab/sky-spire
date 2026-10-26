@@ -29,12 +29,39 @@ G.BossDefs = {
     lungeGrow: 0.0015,   // 앞으로 숙일 때 (가까워지니) 커지는 정도
     handHit: { w: 80, h: 60 },   // 박힌 손을 때릴 수 있는 범위
     poses: {
-      idle:       { img: 'assets/bosses/pan/pose_idle.png',       cx: 348, bottom: 546, scale: 1 },
-      raise:      { img: 'assets/bosses/pan/pose_raise.png',      cx: 307, bottom: 639, scale: 1.02 },
-      slam:       { img: 'assets/bosses/pan/pose_slam.png',       cx: 373, bottom: 624, scale: 1.0, hand: [576, 613] },
-      press:      { img: 'assets/bosses/pan/pose_press.png',      cx: 348, bottom: 635, scale: 0.8 },
-      press_glow: { img: 'assets/bosses/pan/pose_press_glow.png', cx: 349, bottom: 628, scale: 0.8 },
-      flute:      { img: 'assets/bosses/pan/pose_flute.png',      cx: 490, bottom: 643, scale: 0.78, glow: [20, 395] },
+      idle:       { clip: 'slam', frame: 0 },      // 내려찍기 영상의 첫 장면 = 쉬는 자세 (영상과 이어지게)
+      slamclip:   { clip: 'slam' },                // 내려찍기 영상 재생 중
+      fluteclip:  { clip: 'flute' },               // 피리 영상 재생 중
+      vinesclip:  { clip: 'vines' },               // 가시덩굴 영상 재생 중
+    },
+
+    // ---------- 동작 영상 ----------
+    // AI 영상(Kling)을 장면별로 쪼개 시트로 모은 것. 시트 하나에 4x4=16장면
+    //   fw, fh: 한 장면 크기(픽셀), cx/bottom/hand: 장면 속 위치(픽셀), scale: 자세 그림 대비 크기
+    //   seg: 게임 단계별로 재생할 장면 구간 [시작, 끝]
+    clips: {
+      slam: {
+        sheets: [0, 1, 2, 3, 4].map(i => `assets/bosses/pan/clips/slam_${i}.webp`),
+        fw: 626, fh: 434, cols: 4, per: 16,
+        cx: 272, bottom: 408, scale: 1.473, hand: [403, 397],
+        seg: { raise: [1, 22], drop: [22, 30], stuck: [30, 48], recover: [48, 69] },
+      },
+      // 피리: 영상 가운데의 커다란 초록 연기 부분은 잘라내고, 소리 고리는 코드로 그림
+      flute: {
+        sheets: [0, 1, 2].map(i => `assets/bosses/pan/clips/flute_${i}.webp`),
+        fw: 626, fh: 434, cols: 4, per: 16,
+        cx: 272, bottom: 408, scale: 1.473,
+        glow: [[21, 128], [274, 126]],               // 피리 끝, 입
+        seg: { intro: [0, 21], hold: [18, 21], outro: [22, 38] },
+      },
+      // 가시덩굴: 두 팔을 들었다가 양손으로 땅을 내리침. 영상 뒷부분(다시 팔을 드는 동작)은 잘라냄
+      vines: {
+        sheets: [0, 1, 2].map(i => `assets/bosses/pan/clips/vines_${i}.webp`),
+        fw: 620, fh: 553, cols: 4, per: 16,
+        cx: 303, bottom: 530, scale: 1.472,
+        glow: [[65, 525], [539, 525]],               // 두 손
+        seg: { raise: [0, 14], drop: [14, 20], crouch: [20, 35] },
+      },
     },
 
     theme: {
@@ -57,8 +84,8 @@ G.BossDefs = {
         lift: 150,         // 손을 드는 높이
         drop: 0.12,        // 내려치는 시간
         stuck: 1.7,        // 손이 바닥에 박혀 있는 시간 (공격 기회)
-        recover: 0.55,     // 손이 돌아가는 시간
-        rest: 1.1,         // 다음 공격까지 쉬는 시간
+        recover: 0.85,     // 손이 돌아가는 시간 (영상의 복귀 동작 재생)
+        rest: 0.8,         // 다음 공격까지 쉬는 시간
         dmg: 25,           // 플레이어가 맞으면 받는 피해
         radius: 64,        // 충격 범위 (가로 반지름, 깊이는 0.55배)
       },
@@ -73,7 +100,8 @@ G.BossDefs = {
         squash: 1.6,       // 깊이 방향으로 납작한 정도
         safeHeight: 30,    // 이 높이 이상 뛰어 있으면 안 맞음
         dmg: 15,
-        rest: 1.0,
+        outro: 0.7,        // 피리를 집어넣고 돌아오는 시간 (영상 재생)
+        rest: 0.6,
       },
       // 가시덩굴: 땅을 짚으면 바닥 줄(깊이별) 몇 개에 덩굴이 솟음 → 안전한 줄로 이동
       vines: {
@@ -83,6 +111,7 @@ G.BossDefs = {
         lanes: 4,          // 바닥을 깊이별로 나눈 줄 수
         hitLanes: 2,       // 그중 덩굴이 솟는 줄 수
         height: 42,        // 덩굴 높이 (이보다 높이 있으면 안 맞음)
+        drop: 0.14,        // 두 손을 내리치는 시간 (예고 끝에 땅에 닿음)
         dmg: 20,
         rest: 1.0,
       },
@@ -91,8 +120,8 @@ G.BossDefs = {
     // 체력 50% 이하: 더 빠르고 강해짐 (패턴별로 덮어쓸 수치)
     phase2: {
       at: 0.5,
-      slam:  { telegraph: 0.7, stuck: 1.25, rest: 0.55, double: true },
-      flute: { rings: 4, gap: 0.38, rest: 0.7 },
+      slam:  { telegraph: 0.7, stuck: 1.25, recover: 0.7, rest: 0.35, double: true },
+      flute: { rings: 4, gap: 0.38, outro: 0.55, rest: 0.4 },
       vines: { hitLanes: 3, telegraph: 0.85, rest: 0.7 },
     },
   },

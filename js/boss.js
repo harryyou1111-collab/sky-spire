@@ -15,6 +15,10 @@
 // 내려찍기: 플레이어 쪽 팔을 치켜듦(raise) → 몸을 옮기고 앞으로 숙이며 내리침(slam)
 //           → 손이 박혀 있는 동안 때릴 수 있음 → 원래 자세(idle)로 돌아감
 // 왼쪽을 칠 때는 그림을 좌우로 뒤집어 씀
+//
+// 동작 영상(clips): AI 영상을 장면별로 쪼개 한 장에 모은 그림(시트). 내려찍기는 영상으로 재생
+//   자세에 { clip: '이름', frame: 번호 }를 적으면 영상의 한 장면을 멈춘 그림으로 씀 (idle)
+//   seg: 영상 구간 [시작 장면, 끝 장면] — 게임 단계(들기/내리침/박힘/복귀) 시간에 맞춰 늘이거나 줄여 재생
 // =====================================================================
 G.Boss = (function () {
   const S = () => G.Stage;
@@ -29,6 +33,7 @@ G.Boss = (function () {
     lunge: 0, lungeT: 0,       // 앞으로 숙인 정도 = 바닥 깊이 방향 이동 (현재, 목표)
     follow: 4,                 // 이동을 따라가는 빠르기
     cur: { key: 'idle', mirror: false }, prev: null, fade: 1, fadeDur: 0.2,
+    frame: 0, idleMirror: false,   // 영상 장면 번호, 쉬는 자세 좌우 반전
     slam: null,                // 진행 중인 내려찍기
     queue: 0,                  // 2단계 연속 내려찍기 남은 횟수
     pattern: null,             // 진행 중인 몸 전체 패턴 (flute, vines)
@@ -38,13 +43,18 @@ G.Boss = (function () {
   };
 
   // ---------- 보스 불러오기 ----------
-  function load(key) { def = G.BossDefs[key]; reset(); }
+  function load(key) {
+    def = G.BossDefs[key];
+    // 영상 그림은 미리 불러 둠 (처음 공격 때 비어 보이지 않게)
+    for (const c of Object.values(def.clips || {})) c.sheets.forEach(src => G.Render.getImg(src));
+    reset();
+  }
 
   function reset() {
     Object.assign(boss, {
       hp: def.hp, maxHp: def.hp, mode: 'fight', timer: 1.5, time: 0, flash: 0, sink: 0,
       shift: 0, shiftT: 0, lunge: 0, lungeT: 0, follow: 4,
-      cur: { key: 'idle', mirror: false }, prev: null, fade: 1,
+      cur: { key: 'idle', mirror: false }, prev: null, fade: 1, frame: 0, idleMirror: false,
       slam: null, queue: 0, pattern: null, marks: [], rings: [], lanes: [], last: null,
     });
     if (boss.target) G.Combat.removeTarget(boss.target);
@@ -64,18 +74,23 @@ G.Boss = (function () {
   const phase2 = () => def.phase2 && boss.hp / boss.maxHp <= def.phase2.at;
 
   // ---------- 자세 전환 ----------
-  function setPose(key, mirror, dur) {
+  function setPose(key, mirror, dur, frame) {
     mirror = !!mirror;
     if (boss.cur.key === key && boss.cur.mirror === mirror) return;
     boss.prev = boss.cur;
-    boss.cur = { key, mirror };
+    boss.cur = { key, mirror, frame: frame || 0 };
     boss.fadeDur = Math.max(0.001, dur == null ? 0.2 : dur);
     boss.fade = 0;
   }
 
   // 자세 그림 배치: 그림의 (cx, bottom)을 바닥 위 기준점에 맞춤
-  function scaleOf(key) {
+  // 자세의 위치 정보: 영상 장면이면 영상(clip)의 정보를 씀
+  function geo(key) {
     const P = def.poses[key];
+    return P.clip ? def.clips[P.clip] : P;
+  }
+  function scaleOf(key) {
+    const P = geo(key);
     return def.poseScale * (P.scale || 1) * (1 + boss.lunge * (def.lungeGrow || 0));
   }
   function anchor() {
@@ -83,7 +98,7 @@ G.Boss = (function () {
   }
   // 그림 속 점(픽셀) → 화면 위치
   function posePoint(key, mirror, px, py) {
-    const P = def.poses[key], s = scaleOf(key), a = anchor();
+    const P = geo(key), s = scaleOf(key), a = anchor();
     return { x: a.x + (mirror ? -1 : 1) * (px - P.cx) * s, y: a.y + (py - P.bottom) * s };
   }
 
@@ -109,7 +124,7 @@ G.Boss = (function () {
         boss.shiftT = Math.sin(boss.time * 0.5) * 8;
         boss.lungeT = 0;
         boss.follow = 2.5;
-        setPose('idle', false, 0.3);
+        setPose('idle', boss.idleMirror, 0.3);
         if (boss.timer > 50) boss.timer = params(boss.last || 'slam').rest;
         boss.timer -= dt;
         if (boss.queue > 0 && boss.timer > 0.15) boss.timer = 0.15;
@@ -148,7 +163,7 @@ G.Boss = (function () {
   // ---------- 내려찍기 ----------
   // 플레이어 위치를 보고 어느 쪽 팔로, 몸을 얼마나 옮겨서, 얼마나 앞으로 숙여 칠지 계산
   function aimSlam(slam, player) {
-    const P = def.poses.slam, D = G.CFG.DEPTH;
+    const P = def.clips.slam, D = G.CFG.DEPTH;
     const z = Math.max(def.baseZ, Math.min(D - 8, player.z));
     const lunge = z - def.baseZ;
     const s = def.poseScale * (P.scale || 1) * (1 + lunge * (def.lungeGrow || 0));
@@ -169,7 +184,19 @@ G.Boss = (function () {
     slam.mark = { x: slam.aim.x, z: slam.aim.z, r: p.radius, kind: 'warn', k: 0 };
     boss.marks.push(slam.mark);
     boss.slam = slam;
-    setPose('raise', slam.mirror, 0.18);
+    setPose('slamclip', slam.mirror, 0.15, def.clips.slam.seg.raise[0]);
+  }
+
+  // 영상 구간 재생: u(0~1) 만큼 진행한 장면을 보여줌
+  function playSeg(name, u, clip) {
+    const [a, b] = def.clips[clip || 'slam'].seg[name];
+    boss.cur.frame = Math.round(a + (b - a) * Math.max(0, Math.min(1, u)));
+  }
+  // 영상의 떨어진 장면으로 건너뛸 때: 앞 장면과 겹쳐 부드럽게 넘김
+  function jumpFrame(f, dur) {
+    boss.prev = Object.assign({}, boss.cur);
+    boss.cur = Object.assign({}, boss.cur, { frame: f });
+    boss.fadeDur = dur; boss.fade = 0;
   }
 
   function updateSlam(dt, player) {
@@ -182,19 +209,28 @@ G.Boss = (function () {
       boss.shiftT = s.aim.shift * 0.75;                                 // 치켜들며 그쪽으로 몸을 옮김
       boss.lungeT = s.aim.lunge * 0.15 - 6 * u;                         // 살짝 뒤로 젖혀 힘을 모음
       boss.follow = 4;
-      if (u >= 1) { s.phase = 'drop'; s.t = 0; setPose('slam', s.mirror, p.drop * 0.8); }
+      playSeg('raise', u);
+      if (u >= 1) { s.phase = 'drop'; s.t = 0; }
     } else if (s.phase === 'drop') {
       boss.shiftT = s.aim.shift; boss.lungeT = s.aim.lunge; boss.follow = 30;   // 몸을 던지듯 빠르게
+      playSeg('drop', s.t / p.drop);
       if (s.t >= p.drop) impact(player);
     } else if (s.phase === 'stuck') {
       boss.follow = 6;
-      // 손 판정 위치를 그림 속 손에 맞춤
-      const P = def.poses.slam, h = posePoint('slam', s.mirror, P.hand[0], P.hand[1]);
+      playSeg('stuck', s.t / p.stuck);
+      // 손 판정 위치를 영상 속 손에 맞춤
+      const P = def.clips.slam, h = posePoint('slamclip', s.mirror, P.hand[0], P.hand[1]);
       Object.assign(boss.target, { x: h.x, z: def.baseZ + boss.lunge, h: 0 });
-      if (s.t >= p.stuck) { s.phase = 'back'; s.t = 0; boss.target.active = false; setPose('idle', false, p.recover * 0.7); }
+      if (s.t >= p.stuck) { s.phase = 'back'; s.t = 0; boss.target.active = false; }
     } else if (s.phase === 'back') {
       boss.shiftT = 0; boss.lungeT = 0; boss.follow = 3;
-      if (s.t >= p.recover) { boss.slam = null; boss.timer = boss.queue > 0 ? 0.1 : p.rest; }
+      playSeg('recover', s.t / p.recover);
+      if (s.t >= p.recover) {
+        // 영상 끝 장면 = 쉬는 자세. 같은 방향의 쉬는 그림으로 이어서 끊김 없음
+        boss.idleMirror = s.mirror;
+        setPose('idle', s.mirror, 0.15);
+        boss.slam = null; boss.timer = boss.queue > 0 ? 0.1 : p.rest;
+      }
     }
   }
 
@@ -202,7 +238,8 @@ G.Boss = (function () {
     const s = boss.slam, p = s.p;
     s.phase = 'stuck'; s.t = 0;
     boss.shift = s.aim.shift; boss.lunge = s.aim.lunge;              // 정확히 그 자리에
-    const P = def.poses.slam, h = posePoint('slam', s.mirror, P.hand[0], P.hand[1]);
+    playSeg('drop', 1);
+    const P = def.clips.slam, h = posePoint('slamclip', s.mirror, P.hand[0], P.hand[1]);
     const z = def.baseZ + boss.lunge;
     boss.marks = boss.marks.filter(m => m !== s.mark);
     boss.marks.push({ x: h.x, z, r: p.radius, kind: 'crack', k: 0, life: p.stuck + 0.4 });
@@ -216,9 +253,10 @@ G.Boss = (function () {
 
   // ---------- 피리 충격파 ----------
   function startFlute() {
-    boss.pattern = { kind: 'flute', t: 0, p: params('flute'), fired: 0 };
+    boss.pattern = { kind: 'flute', t: 0, p: params('flute'), fired: 0, stage: 'intro' };
     boss.shiftT = 0; boss.lungeT = -4; boss.follow = 3;
-    setPose('flute', false, 0.25);
+    boss.idleMirror = false;
+    setPose('fluteclip', false, 0.12, def.clips.flute.seg.intro[0]);
   }
 
   // ---------- 가시덩굴 ----------
@@ -228,31 +266,58 @@ G.Boss = (function () {
     const D = G.CFG.DEPTH, w = D / p.lanes;
     boss.lanes = ids.map(i => ({ z0: i * w, z1: (i + 1) * w, t: 0, p, state: 'warn', hit: false, seed: Math.random() * 1000 }));
     boss.pattern = { kind: 'vines', t: 0, p, pressed: false };
-    boss.shiftT = 0; boss.lungeT = 4; boss.follow = 3;
-    setPose('press', false, 0.25);                                     // 웅크려 힘을 모음
+    boss.shiftT = 0; boss.lungeT = 0; boss.follow = 3;
+    boss.idleMirror = false;
+    setPose('vinesclip', false, 0.12, def.clips.vines.seg.raise[0]);   // 두 팔을 치켜듦
   }
 
   function updatePattern(dt, player) {
     const P = boss.pattern, p = P.p;
     P.t += dt;
     if (P.kind === 'flute') {
-      if (P.t > p.telegraph) {
+      // 영상: 피리를 꺼내 입에 댐(intro) → 부는 동안 마지막 몇 장면을 오가며 유지(hold) → 피리를 집어넣고 쉬는 자세로(outro)
+      const C = def.clips.flute;
+      if (P.stage === 'intro') {
+        playSeg('intro', P.t / p.telegraph, 'flute');
+        if (P.t >= p.telegraph) P.stage = 'blow';
+      }
+      if (P.stage === 'blow') {
+        const [h0, h1] = C.seg.hold, n = h1 - h0;
+        const ph = Math.floor((P.t - p.telegraph) * 10) % (n * 2);      // 1초에 10장면, 앞뒤로 오감
+        boss.cur.frame = h0 + (ph < n ? ph : n * 2 - ph);
         const k = Math.floor((P.t - p.telegraph) / p.gap);
         while (P.fired <= k && P.fired < p.rings) {
           boss.rings.push({ r: 30, p, x: def.baseX + boss.shift });
-          P.fired++;
+          P.fired++; P.pulse = 0.25;
           G.FX.shake(3, 0.12);
         }
-        if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) { boss.pattern = null; boss.timer = p.rest; }
+        if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) {
+          P.stage = 'outro'; P.t0 = P.t;
+          jumpFrame(C.seg.outro[0], 0.18);
+        }
       }
+      if (P.stage === 'outro') {
+        const u = (P.t - P.t0) / p.outro;
+        playSeg('outro', u, 'flute');
+        if (u >= 1) { setPose('idle', false, 0.12); boss.pattern = null; boss.timer = p.rest; }
+      }
+      P.pulse = Math.max(0, (P.pulse || 0) - dt);
     } else if (P.kind === 'vines') {
+      // 영상: 두 팔을 치켜듦(raise, 예고 동안) → 양손으로 내리침(drop, 덩굴이 솟는 순간에 닿게) → 웅크린 채 버팀(crouch)
+      const up = p.telegraph - p.drop;
+      if (P.t < up) playSeg('raise', P.t / up, 'vines');
+      else if (P.t < p.telegraph) playSeg('drop', (P.t - up) / p.drop, 'vines');
+      else playSeg('crouch', (P.t - p.telegraph) / p.active, 'vines');
       if (!P.pressed && P.t >= p.telegraph) {
         P.pressed = true;
-        setPose('press_glow', false, 0.06);                            // 초록 기운이 터짐
-        boss.lungeT = 10; boss.follow = 12;
-        G.FX.shake(7, 0.25);
+        boss.lungeT = 8; boss.follow = 12;
+        G.FX.shake(9, 0.3);
       }
-      if (P.t >= p.telegraph + p.active) { boss.pattern = null; boss.timer = p.rest; }
+      if (P.t >= p.telegraph + p.active) {
+        setPose('idle', false, 0.35);                                  // 웅크린 자세 → 쉬는 자세 (비슷한 자세라 겹쳐 넘김)
+        boss.lungeT = 0; boss.follow = 3;
+        boss.pattern = null; boss.timer = p.rest;
+      }
     }
   }
 
@@ -293,26 +358,38 @@ G.Boss = (function () {
       boss.target.active = false;
       boss.slam = null; boss.pattern = null;
       boss.marks = []; boss.rings = []; boss.lanes = [];
-      setPose('idle', false, 0.3);
+      setPose('idle', boss.idleMirror, 0.3);
       G.FX.shake(14, 0.6);
     }
   }
 
   // ---------- 그리기 ----------
   function drawPose(ctx, pose, alpha) {
-    const P = def.poses[pose.key], im = P && G.Render.getImg(P.img);
-    if (!im || alpha <= 0) return;
-    const s = scaleOf(pose.key), a = anchor();
+    const D = def.poses[pose.key];
+    if (!D || alpha <= 0) return;
+    const P = geo(pose.key), s = scaleOf(pose.key), a = anchor();
+    // 그림 한 장, 또는 영상 시트에서 한 장면 잘라오기
+    let im, sx = 0, sy = 0, w, h;
+    if (D.clip) {
+      const f = D.frame != null ? D.frame : (pose.frame || 0);
+      im = G.Render.getImg(P.sheets[Math.floor(f / P.per)]);
+      const k = f % P.per;
+      sx = (k % P.cols) * P.fw; sy = Math.floor(k / P.cols) * P.fh; w = P.fw; h = P.fh;
+    } else {
+      im = G.Render.getImg(D.img);
+      if (im) { w = im.naturalWidth; h = im.naturalHeight; }
+    }
+    if (!im) return;
     const breathe = 1 + 0.012 * Math.sin(boss.time * 2);
     ctx.save();
     ctx.globalAlpha = alpha * (boss.mode !== 'fight' ? Math.max(0, 1 - boss.sink / 220) : 1);
     ctx.translate(a.x, a.y);
     ctx.scale(pose.mirror ? -1 : 1, breathe);
-    ctx.drawImage(im, -P.cx * s, -P.bottom * s, im.naturalWidth * s, im.naturalHeight * s);
+    ctx.drawImage(im, sx, sy, w, h, -P.cx * s, -P.bottom * s, w * s, h * s);
     if (boss.flash > 0) {      // 맞을 때 번쩍
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.3;
-      ctx.drawImage(im, -P.cx * s, -P.bottom * s, im.naturalWidth * s, im.naturalHeight * s);
+      ctx.drawImage(im, sx, sy, w, h, -P.cx * s, -P.bottom * s, w * s, h * s);
     }
     ctx.restore();
   }
@@ -352,16 +429,25 @@ G.Boss = (function () {
   }
 
   // 피리: 그림 속 피리 끝에 초록 기운이 모임
+  // 피리: 입에 대는 순간부터 피리 끝과 입에 초록 기운. 고리가 나갈 때마다 번쩍
   function drawFluteGlow(ctx, P) {
-    if (P.t >= P.p.telegraph) return;
-    const g = def.poses.flute.glow, pt = posePoint('flute', false, g[0], g[1]);
-    glow(ctx, pt.x, pt.y, P.t / P.p.telegraph, 30, 60);
+    if (P.stage === 'outro') return;
+    const charge = Math.max(0, (P.t / P.p.telegraph - 0.6) / 0.4);
+    const u = P.stage === 'blow' ? 0.6 + 1.6 * (P.pulse || 0) : charge;
+    if (u <= 0) return;
+    for (const g of def.clips.flute.glow) {
+      const pt = posePoint('fluteclip', false, g[0], g[1]);
+      glow(ctx, pt.x, pt.y, Math.min(1, u), 18, 40);
+    }
   }
   // 땅 누르기: 양손에서 초록 빛이 번쩍
+  // 땅 내리치기: 두 손에서 초록 빛이 번쩍
   function drawPressGlow(ctx, P) {
     const u = Math.max(0, 1 - (P.t - P.p.telegraph) / P.p.active);
-    const a = anchor();
-    glow(ctx, a.x, a.y - 10, u, 80, 140);
+    for (const g of def.clips.vines.glow) {
+      const pt = posePoint('vinesclip', false, g[0], g[1]);
+      glow(ctx, pt.x, pt.y, u, 40, 90);
+    }
   }
   function glow(ctx, x, y, u, r0, r1) {
     ctx.save();
@@ -462,6 +548,7 @@ G.Boss = (function () {
   // 개발 확인용: 콘솔에서 G.Boss.force('flute') 처럼 특정 패턴을 바로 실행
   function force(kind, player) {
     boss.last = kind; boss.timer = 999;
+    boss.slam = null; boss.pattern = null; boss.marks = boss.marks.filter(m => m.kind !== 'warn');
     if (kind === 'flute') startFlute(); else if (kind === 'vines') startVines(); else startSlam(player || G.player);
   }
 
