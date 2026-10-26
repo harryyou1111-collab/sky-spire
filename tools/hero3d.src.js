@@ -15,6 +15,7 @@ const G = window.G;
 // 게임 상태 → 모델 동작 이름 (모델마다 이름이 다르면 여기만 고치면 됨). 없는 동작은 다음 후보로
 const CLIP_NAMES = {
   idle: ['Idle', 'idle'],
+  skill: ['Crouch', 'Idle'],
   run: ['Run', 'run'],
   walk: ['Walk', 'walk'],
   jump: ['Jump', 'Idle', 'idle'],
@@ -68,9 +69,12 @@ function toonify(root) {
     o.material = new THREE.MeshToonMaterial({ color: old.color || 0xffffff, map: old.map || null, gradientMap: grad });
     // 외곽선: 같은 뼈대를 쓰는 복사본을 법선 방향으로 살짝 부풀려 뒷면만 검게 그림
     const line = new THREE.MeshBasicMaterial({ color: 0x0b0d0a, side: THREE.BackSide });
+    // 외곽선 두께: 모델 키의 0.7% (모델마다 단위가 cm, m로 달라도 같은 굵기)
+    o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox, th = Math.max(bb.max.y - bb.min.y, bb.max.z - bb.min.z) * 0.007;
     line.onBeforeCompile = sh => {
       sh.vertexShader = sh.vertexShader.replace('#include <skinning_vertex>',
-        '#include <skinning_vertex>\n  transformed += normalize(objectNormal) * 0.018;');
+        '#include <skinning_vertex>\n  transformed += normalize(objectNormal) * ' + th.toFixed(6) + ';');
     };
     const copy = o.isSkinnedMesh ? new THREE.SkinnedMesh(o.geometry, line) : new THREE.Mesh(o.geometry, line);
     if (o.isSkinnedMesh) copy.bind(o.skeleton, o.bindMatrix);
@@ -80,24 +84,51 @@ function toonify(root) {
   outlines.forEach(([p, c]) => p.add(c));
 }
 
-// 임시 칼: 오른손 뼈에 붙임 (진짜 칼 모델이 생기면 교체)
-function attachSword(root) {
+// 칼: sword.png의 윤곽을 따서 얇은 두께를 준 판 모양 (그림이 그대로 입혀짐)
+//   SWORD.len: 칼 길이(미터), grip: 그림 속 손잡이 위치(가로 픽셀, 세로 픽셀)
+//   rot/pos: 손 뼈 기준 회전(도)·위치 — 손에 쥔 모양이 어색하면 이 숫자만 조정
+const SWORD = { img: 'assets/hero/sword.png', shape: 'assets/hero/sword.json', len: 1.25, grip: [1650, 136],
+                rot: [0, 0, 180], pos: [0, 0.07, 0.03] };
+H.SWORD = SWORD;
+let swordGroup = null;
+async function attachSword(root) {
   let hand = null;
   root.traverse(o => { if (o.isBone && /RightHand$/i.test(o.name)) hand = o; });
   if (!hand) return;
+  const v = '?v=' + (G.VERSION || 0);
+  const data = await (await fetch(SWORD.shape + v)).json();
+  const tex = await new THREE.TextureLoader().loadAsync(SWORD.img + v);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const k = SWORD.len / data.w;                       // 픽셀 → 미터
+  const shape = new THREE.Shape(data.pts.map(([x, y]) => new THREE.Vector2((x - SWORD.grip[0]) * k, (SWORD.grip[1] - y) * k)));
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.012, bevelEnabled: false });
+  geo.translate(0, 0, -0.006);
+  // 그림 좌표로 UV 다시 매기기 (앞뒤 모두 그림이 보이게)
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getX(i) / k + SWORD.grip[0]) / data.w, 1 - (SWORD.grip[1] - pos.getY(i) / k) / data.h);
+  }
+  const grad = new THREE.DataTexture(new Uint8Array([120, 120, 120, 255, 200, 200, 200, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
+  grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
+  const mesh = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: tex, gradientMap: grad, side: THREE.DoubleSide }));
+  const line = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x0b0d0a, side: THREE.BackSide }));
+  line.scale.setScalar(1.03);
   const g = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 0.012), new THREE.MeshToonMaterial({ color: 0xcfd6e0 }));
-  blade.position.y = 0.55;
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.04), new THREE.MeshToonMaterial({ color: 0x2a2a2a }));
-  guard.position.y = 0.1;
-  g.add(blade, guard);
-  // Mixamo 손 뼈 기준: 손바닥 방향으로 칼자루가 잡히게
-  g.rotation.set(0, 0, -Math.PI / 2);
-  g.position.set(0, 0.08, 0.03);
-  const s = 1 / hand.getWorldScale(new THREE.Vector3()).x;   // 뼈 크기 보정
-  g.scale.setScalar(s);
-  hand.add(g);
+  g.add(mesh, line);
+  const inner = new THREE.Group(); inner.add(g);
+  swordGroup = inner;
+  placeSword();
+  const s = 1 / hand.getWorldScale(new THREE.Vector3()).x;   // 뼈 크기 보정 (모델 단위와 상관없이 미터로)
+  const holder = new THREE.Group(); holder.scale.setScalar(s); holder.add(inner);
+  hand.add(holder);
 }
+function placeSword() {
+  if (!swordGroup) return;
+  const r = SWORD.rot.map(THREE.MathUtils.degToRad);
+  swordGroup.rotation.set(r[0], r[1], r[2]);
+  swordGroup.position.set(...SWORD.pos);
+}
+H.placeSword = placeSword;
 
 function onLoad(gltf) {
   model = gltf.scene;
@@ -154,7 +185,7 @@ function targetYaw(p) {
 }
 
 function update(dt, p) {
-  if (!H.ready) return;
+  if (!H.ready || H.frozen) { if (H.ready) model.rotation.y = H.yaw; return; }
   const t = targetYaw(p);
   if (t != null) {
     let d = t - H.yaw;
@@ -176,6 +207,15 @@ function draw(ctx, x, y) {
   return true;
 }
 
+// 개발 확인용: 특정 동작의 특정 시점에 멈춰 보기 (G.Hero3D.debugPose('Run', 0.3))
+function debugPose(name, t) {
+  const a = actions[name]; if (!a) return false;
+  mixer.stopAllAction(); a.reset().play(); a.time = t; a.paused = true; current = a; mixer.update(0);
+  H.frozen = true; return a.getClip().duration;
+}
+H.debugPose = debugPose;
+H.clips = () => Object.keys(actions);
 H.update = update; H.draw = draw; H.resize = resize;
+H.canvas = () => renderer && renderer.domElement;
 G.Hero3D = H;
 if (!/[?&]old/.test(location.search)) init();   // 주소 끝에 ?old 를 붙이면 예전 도형 캐릭터
