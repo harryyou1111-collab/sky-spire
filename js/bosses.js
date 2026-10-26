@@ -64,7 +64,8 @@ G.BossDefs = {
       moon: '210, 255, 200',
       silhouette: 'trees',
       // 이끼 낀 숲 폐허 바닥과 기둥
-      ground: { far: '#121a14', near: '#26301f', line: '#3b4a30', front: '#0c120d', wall: '#060a07',
+      ground: { tex: 'assets/bosses/pan/ground.jpg', texScale: 0.42, texSquash: 0.5,   // 바닥 그림 (없으면 색으로)
+                far: '#121a14', near: '#26301f', line: '#3b4a30', front: '#0c120d', wall: '#060a07',
                 side: ['#1f281c', '#37442f', '#1c2419'], top: '#46553a', rim: '#6a7d52' },
     },
 

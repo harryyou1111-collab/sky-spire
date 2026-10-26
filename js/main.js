@@ -187,6 +187,7 @@
     const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), ...G.Boss.drawables(), G.Player.drawable(player)];
     list.sort((a, b) => a.key - b.key);
     for (const d of list) d.draw(ctx);
+    G.Boss.drawTop(ctx);       // 보스 공격 이펙트 (파편, 먼지, 잎)
     G.FX.drawFront(ctx);
     if (CFG.debug) G.Combat.drawDebug(ctx, player);
     if (CFG.debug) drawDebug();

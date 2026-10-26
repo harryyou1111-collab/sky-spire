@@ -51,6 +51,7 @@ G.Boss = (function () {
       cur: { key: 'idle', mirror: false }, prev: null, fade: 1, frame: 0, idleMirror: false,
       slam: null, queue: 0, pattern: null, marks: [], rings: [], lanes: [], last: null,
     });
+    if (G.BFX) G.BFX.clear();
     if (boss.target) G.Combat.removeTarget(boss.target);
     boss.target = G.Combat.addTarget({
       x: 0, z: 0, h: 0, w: def.handHit.w, height: def.handHit.h, active: false,
@@ -133,6 +134,7 @@ G.Boss = (function () {
 
     updateRings(dt, player);
     updateLanes(dt, player);
+    G.BFX.update(dt);
     // 예고 표시(warn, line)는 패턴이 직접 지우고, 나머지(균열 자국)는 시간이 지나면 사라짐
     const keep = m => m.kind === 'warn' || m.kind === 'line';
     boss.marks.forEach(m => { if (!keep(m)) m.k += dt; });
@@ -237,13 +239,20 @@ G.Boss = (function () {
     // 갈라진 땅: 들쭉날쭉한 선 (미리 모양을 정해 둠)
     const pts = [], n = 14;
     for (let i = 0; i <= n; i++) pts.push((Math.random() - 0.5) * (i === 0 || i === n ? 0 : p.width * 0.5));
-    boss.marks.push(Object.assign({ kind: 'fissure', k: 0, life: p.stuck + 0.5, pts }, L));
+    // 균열을 따라 솟는 돌 조각들 (위치·크기를 미리 정함)
+    const spikes = [];
+    for (let u = 0.12; u < 0.97; u += 0.07 + Math.random() * 0.04) spikes.push({ u, side: (Math.random() - 0.5) * p.width * 0.7, h: 8 + Math.random() * 14, w: 4 + Math.random() * 4, lean: (Math.random() - 0.5) * 0.6 });
+    boss.marks.push(Object.assign({ kind: 'fissure', k: 0, life: p.stuck + 0.5, pts, spikes }, L));
     Object.assign(boss.target, { x: L.x0, z: L.z0, h: 0, active: true });   // 박힌 손 = 때릴 기회
-    G.FX.shake(11, 0.3);
+    G.FX.shake(12, 0.32);
     G.FX.ring(L.x0, L.z0, p.radius);
-    for (const u of [0, 0.35, 0.7]) {
+    // 내리친 곳: 번쩍임 + 돌 파편 + 흙먼지. 균열을 따라 먼지가 차례로 피어오름
+    G.BFX.flash(L.x0, L.z0, 10, 110, '255, 245, 210', 0.2);
+    G.BFX.debris(L.x0, L.z0, 22, 1);
+    G.BFX.dust(L.x0, L.z0, 14, 1.4);
+    for (let u = 0.15; u <= 1; u += 0.12) {
       const x = L.x0 + (L.x1 - L.x0) * u, z = L.z0 + (L.z1 - L.z0) * u;
-      G.FX.spark(x, S().floorY(z) - 4, 1, 0.8); G.FX.spark(x, S().floorY(z) - 4, -1, 0.8);
+      G.BFX.dust(x, z, 3, 0.6, null, u * 0.15);
     }
     const hit = segDist(player.x, player.z, L);
     const nearHand = Math.hypot(player.x - L.x0, (player.z - L.z0) * 1.8) < p.radius;
@@ -278,15 +287,23 @@ G.Boss = (function () {
     if (P.kind === 'roar') {
       if (P.stage === 'inhale') {
         boss.swellT = 0.6 * Math.min(1, P.t / p.telegraph);            // 숨을 크게 들이쉬며 몸이 부풂
-        if (P.t >= p.telegraph) { P.stage = 'roar'; G.FX.shake(6, 0.3); }
+        // 숨 들이쉬기: 주변의 빛 알갱이와 잎이 입으로 빨려 들어감
+        if (Math.random() < dt * 30) {
+          const m = posePoint('idle', false, def.roarGlow.mouth[0], def.roarGlow.mouth[1]);
+          const to = { x: m.x, h: S().floorY(def.baseZ) - m.y };
+          const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 120;
+          G.BFX.motes(m.x + Math.cos(a) * r, def.baseZ, to.h + Math.sin(a) * r * 0.6, 1, to);
+        }
+        if (P.t >= p.telegraph) { P.stage = 'roar'; G.FX.shake(8, 0.35); G.BFX.screenFlash('120, 200, 110', 0.25); }
       }
       if (P.stage === 'roar') {
         boss.swellT = 1;
         const k = Math.floor((P.t - p.telegraph) / p.gap);
         while (P.fired <= k && P.fired < p.rings) {
-          boss.rings.push({ r: 30, p, x: def.baseX });
+          boss.rings.push({ r: 30, p, x: def.baseX, seed: Math.random() * 10 });
           P.fired++; P.pulse = 0.3;
           G.FX.shake(5, 0.15);
+          G.BFX.leaves(def.baseX, def.baseZ + 4, 30, 10, null, 1.4);
         }
         if (P.fired >= p.rings && P.t > p.telegraph + p.gap * p.rings + 0.2) {
           boss.swellT = 0; boss.pattern = null; boss.timer = p.rest;
@@ -301,7 +318,11 @@ G.Boss = (function () {
       else playSeg('crouch', (P.t - p.telegraph) / p.active, 'vines');
       if (!P.pressed && P.t >= p.telegraph) {
         P.pressed = true;
-        G.FX.shake(9, 0.3);
+        G.FX.shake(10, 0.32);
+        for (const L of boss.lanes) {
+          const zc = (L.z0 + L.z1) / 2;
+          for (let x = 40; x < G.CFG.ARENA_W; x += 70 + Math.random() * 50) { G.BFX.dust(x, zc, 2, 0.8, '85, 75, 55'); G.BFX.debris(x, zc, 2, 0.6); }
+        }
       }
       if (P.t >= p.telegraph + p.active) {
         setPose('idle', false, 0.35);                                  // 웅크린 자세 → 쉬는 자세 (비슷한 자세라 겹쳐 넘김)
@@ -313,6 +334,12 @@ G.Boss = (function () {
   function updateRings(dt, player) {
     for (const r of boss.rings) {
       r.r += r.p.speed * dt;
+      if (Math.random() < dt * 14 && r.r < 700) {
+        const a = Math.random() * Math.PI, x = r.x + Math.cos(a) * r.r, z = -4 + Math.sin(a) * r.r / r.p.squash;
+        if (z >= 0 && z <= G.CFG.DEPTH && x > 0 && x < G.CFG.ARENA_W) {
+          Math.random() < 0.5 ? G.BFX.leaves(x, z, 2, 1, Math.cos(a), 0.8) : G.BFX.dust(x, z, 1, 0.5, '110, 130, 95');
+        }
+      }
       const dx = player.x - r.x, dz = (player.z + 4) * r.p.squash;
       const d = Math.hypot(dx, dz);
       if (!r.hitDone && Math.abs(d - r.r) < r.p.band && player.h < r.p.safeHeight) {
@@ -325,6 +352,9 @@ G.Boss = (function () {
   function updateLanes(dt, player) {
     for (const L of boss.lanes) {
       L.t += dt;
+      if (L.state === 'warn' && Math.random() < dt * 25 * (L.t / L.p.telegraph)) {
+        G.BFX.motes(Math.random() * G.CFG.ARENA_W, L.z0 + Math.random() * (L.z1 - L.z0), 0, 1);
+      }
       if (L.state === 'warn' && L.t >= L.p.telegraph) { L.state = 'up'; L.t = 0; }
       else if (L.state === 'up') {
         if (!L.hit && player.z >= L.z0 - 2 && player.z <= L.z1 + 2 && player.h < L.p.height) {
@@ -492,47 +522,90 @@ G.Boss = (function () {
     ctx.restore();
   }
 
-  // 소리 고리: 바닥 위에 납작한 타원으로 퍼짐
+  // 소리 고리: 일렁이는 음파. 앞쪽 가장자리가 밝고(판정 위치), 뒤로 옅은 잔물결이 따라옴
+  function waveEllipse(ctx, x, y, r, sq, wob, t, seed) {
+    ctx.beginPath();
+    for (let i = 0; i <= 48; i++) {
+      const a = Math.PI * i / 48, rr = r * (1 + wob * Math.sin(a * 9 + t * 12 + seed));
+      const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr / sq;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+  }
   function drawRing(ctx, r) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const a = Math.max(0, 1 - r.r / 900), y = S().floorY(-4);
-    ctx.strokeStyle = `rgba(160, 255, 150, ${0.75 * a})`;
-    ctx.lineWidth = r.p.band * 1.1;
-    ctx.beginPath(); ctx.ellipse(r.x, y, r.r, r.r / r.p.squash, 0, 0, Math.PI); ctx.stroke();
-    ctx.strokeStyle = `rgba(240, 255, 230, ${0.9 * a})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(r.x, y, r.r, r.r / r.p.squash, 0, 0, Math.PI); ctx.stroke();
+    const a = Math.max(0, 1 - r.r / 900), y = S().floorY(-4), sq = r.p.squash, t = boss.time, sd = r.seed || 0;
+    // 뒤따르는 잔물결
+    for (const [off, al] of [[26, 0.18], [14, 0.3]]) {
+      if (r.r - off < 10) continue;
+      ctx.strokeStyle = `rgba(150, 240, 140, ${al * a})`; ctx.lineWidth = r.p.band * 0.8;
+      waveEllipse(ctx, r.x, y, r.r - off, sq, 0.012, t, sd + off); ctx.stroke();
+    }
+    // 본체 (판정 두께)
+    ctx.strokeStyle = `rgba(140, 255, 140, ${0.55 * a})`; ctx.lineWidth = r.p.band * 1.2;
+    waveEllipse(ctx, r.x, y, r.r, sq, 0.01, t, sd); ctx.stroke();
+    // 밝은 앞쪽 가장자리
+    ctx.strokeStyle = `rgba(245, 255, 235, ${0.95 * a})`; ctx.lineWidth = 2.2;
+    waveEllipse(ctx, r.x, y, r.r + r.p.band * 0.4, sq, 0.01, t, sd); ctx.stroke();
     ctx.restore();
   }
 
-  // 덩굴 예고: 줄 전체가 어둡게 꿈틀거림
-  function drawLaneWarn(ctx, L) {
-    const u = Math.min(1, L.t / L.p.telegraph), y0 = S().floorY(L.z0), y1 = S().floorY(L.z1);
-    ctx.save();
-    ctx.fillStyle = `rgba(60, 160, 60, ${0.12 + 0.2 * u + 0.08 * Math.sin(L.t * 20)})`;
-    ctx.fillRect(-50, y0, G.CFG.ARENA_W + 100, y1 - y0);
-    ctx.strokeStyle = 'rgba(140, 220, 110, .8)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([10, 8]);
-    ctx.strokeRect(-50, y0, G.CFG.ARENA_W + 100, y1 - y0);
-    ctx.restore();
-  }
-
-  // 솟은 덩굴: 깊이 정렬에 끼워서 그림 (앞뒤 캐릭터와 올바르게 겹치도록)
-  function drawLaneVines(ctx, L) {
-    const k = L.state === 'up' ? Math.min(1, L.t / 0.08) : Math.max(0, 1 - L.t / 0.25);
-    const H = L.p.height * k;
-    let seed = L.seed;
+  // 덩굴 자리 (줄마다 같은 위치에서 예고 새싹 → 진짜 덩굴이 솟음)
+  function vineSpots(L) {
+    if (L.spots) return L.spots;
+    let seed = Math.floor(L.seed * 1000) + 1;
     const rnd = () => (seed = (seed * 16807 + 7) % 2147483647) / 2147483647;
-    for (let z = L.z0 + 4; z < L.z1; z += 9) {
-      const y = S().floorY(z);
-      for (let x = -20; x < G.CFG.ARENA_W + 20; x += 18 + rnd() * 10) {
-        const h = H * (0.6 + rnd() * 0.6), lean = (rnd() - 0.5) * 10;
-        ctx.fillStyle = rnd() < 0.5 ? '#3f6b2c' : '#2f5422';
-        ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + lean, y - h); ctx.lineTo(x + 5, y); ctx.fill();
-        if (h > 20) { ctx.fillStyle = '#c9d98a'; ctx.beginPath(); ctx.moveTo(x + lean * 0.5 - 2, y - h * 0.5); ctx.lineTo(x + lean * 0.5 + 6, y - h * 0.55); ctx.lineTo(x + lean * 0.5, y - h * 0.45); ctx.fill(); }
+    L.spots = [];
+    for (let row = 0; row < 2; row++) {
+      const z = L.z0 + (L.z1 - L.z0) * (0.3 + row * 0.45);
+      for (let x = -10 + rnd() * 30; x < G.CFG.ARENA_W + 10; x += 26 + rnd() * 22) {
+        L.spots.push({ x, z, h: 0.95 + rnd() * 0.7, lean: (rnd() - 0.5) * 16, seed: Math.floor(rnd() * 99999) + 1, w: 3.5 + rnd() * 2.5, ph: rnd() * 6 });
       }
+    }
+    L.spots.sort((a, b) => a.z - b.z);
+    return L.spots;
+  }
+
+  // 덩굴 예고: 줄에 금이 가며 초록빛이 새어 나오고, 덩굴 끝이 꿈틀거리며 고개를 내밂
+  function drawLaneWarn(ctx, L) {
+    const u = Math.min(1, L.t / L.p.telegraph), y0 = S().floorY(L.z0), y1 = S().floorY(L.z1), F = S().floorY;
+    const W = G.CFG.ARENA_W;
+    ctx.save();
+    // 줄 전체: 옅은 초록 + 위아래 경계선 (어디가 위험한지 분명하게)
+    ctx.fillStyle = `rgba(70, 170, 70, ${0.08 + 0.14 * u})`;
+    ctx.fillRect(-50, y0, W + 100, y1 - y0);
+    ctx.strokeStyle = `rgba(150, 230, 120, ${0.35 + 0.4 * u})`;
+    ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]); ctx.lineDashOffset = -L.t * 30;
+    ctx.beginPath(); ctx.moveTo(-50, y0); ctx.lineTo(W + 50, y0); ctx.moveTo(-50, y1); ctx.lineTo(W + 50, y1); ctx.stroke();
+    ctx.setLineDash([]);
+    // 덩굴이 나올 자리마다: 금 간 흙 + 빛 + 꿈틀대는 새싹
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of vineSpots(L)) {
+      const y = F(s.z), g = ctx.createRadialGradient(s.x, y, 0, s.x, y, 10 + 8 * u);
+      g.addColorStop(0, `rgba(160, 255, 120, ${0.08 + 0.25 * u})`); g.addColorStop(1, 'rgba(160, 255, 120, 0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(s.x, y, 10 + 8 * u, 4 + 3 * u, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    if (u > 0.35) {
+      for (const s of vineSpots(L)) {
+        const sway = Math.sin(boss.time * 9 + s.ph);
+        G.BFX.vine(ctx, s.x, F(s.z), 4 + 9 * (u - 0.35) / 0.65 * (0.7 + 0.3 * Math.sin(boss.time * 14 + s.ph)), s.lean * 0.2, s.seed, sway, s.w * 0.6);
+      }
+    }
+    ctx.restore();
+  }
+
+  // 솟은 덩굴: 땅을 뚫고 튀어나와(살짝 넘치게) 흔들리다가 다시 들어감. 깊이 정렬에 끼워서 그림
+  function drawLaneVines(ctx, L) {
+    const F = S().floorY;
+    let k;
+    if (L.state === 'up') { const t = Math.min(1, L.t / 0.1); k = t < 1 ? 1.15 * (1 - Math.pow(1 - t, 3)) : 1 + 0.15 * Math.max(0, 1 - (L.t - 0.1) / 0.15); }
+    else k = Math.max(0, 1 - L.t / 0.25);
+    for (const s of vineSpots(L)) {
+      const y = F(s.z);
+      ctx.fillStyle = 'rgba(30, 24, 16, .55)';   // 뚫린 흙
+      ctx.beginPath(); ctx.ellipse(s.x, y, 7, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+      G.BFX.vine(ctx, s.x, y, L.p.height * s.h * k, s.lean, s.seed, Math.sin(boss.time * 6 + s.ph) * 0.6, s.w);
     }
   }
   function drawables() {
@@ -551,23 +624,40 @@ G.Boss = (function () {
   }
 
   function drawMark(ctx, m) {
-    if (m.kind === 'line') {        // 균열 예고: 붉은 줄 + 손 쪽부터 차오르는 안쪽 줄 = 남은 시간
+    if (m.kind === 'line') {        // 균열 예고: 붉은 줄 + 손 쪽에서 플레이어 쪽으로 흐르는 화살표 + 차오르는 안쪽 줄 = 남은 시간
       ctx.save();
-      ctx.fillStyle = `rgba(220, 40, 30, ${0.14 + 0.16 * m.k})`;
+      const flash = m.k > 0.85 ? 0.5 + 0.5 * Math.sin(boss.time * 50) : 0;   // 내려치기 직전 깜빡임
+      ctx.fillStyle = `rgba(200, 30, 20, ${0.16 + 0.14 * m.k + 0.2 * flash})`;
       fillPoly(ctx, bandPoly(m, m.w, 1));
-      ctx.fillStyle = 'rgba(255, 70, 50, .35)';
-      fillPoly(ctx, bandPoly(m, m.w * 0.6, m.k));
+      ctx.fillStyle = `rgba(255, 80, 50, ${0.35 + 0.3 * flash})`;
+      fillPoly(ctx, bandPoly(m, m.w * 0.5, m.k));
+      // 테두리
+      const p = bandPoly(m, m.w, 1);
+      ctx.strokeStyle = `rgba(255, 110, 80, ${0.55 + 0.4 * flash})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); ctx.lineTo(p[1][0], p[1][1]); ctx.moveTo(p[3][0], p[3][1]); ctx.lineTo(p[2][0], p[2][1]); ctx.stroke();
+      // 흐르는 화살표 (>)
+      const dx = m.x1 - m.x0, dz = m.z1 - m.z0, len = Math.hypot(dx, dz) || 1, ux = dx / len, uz = dz / len, F = S().floorY;
+      ctx.strokeStyle = `rgba(255, 200, 170, ${0.5 + 0.3 * m.k})`; ctx.lineWidth = 2;
+      for (let d = (boss.time * 160) % 34; d < len; d += 34) {
+        const cx = m.x0 + ux * d, cz = m.z0 + uz * d, w = m.w * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(cx - ux * 6 - uz * w, F(cz - uz * 6 + ux * w));
+        ctx.lineTo(cx, F(cz));
+        ctx.lineTo(cx - ux * 6 + uz * w, F(cz - uz * 6 - ux * w));
+        ctx.stroke();
+      }
       ctx.restore();
       return;
     }
-    if (m.kind === 'fissure') {     // 갈라진 땅: 손에서 빠르게 뻗어 나가고, 빛이 식으며 사라짐
+    if (m.kind === 'fissure') {     // 갈라진 땅: 손에서 빠르게 뻗어 나가고, 돌 조각이 솟았다가 가라앉음, 빛이 식으며 사라짐
       const grow = Math.min(1, m.k / 0.15), al = Math.max(0, 1 - m.k / m.life), F = S().floorY;
       const dx = m.x1 - m.x0, dz = m.z1 - m.z0, d = Math.hypot(dx, dz) || 1, nx = -dz / d, nz = dx / d;
       const n = m.pts.length - 1, last = Math.max(1, Math.round(n * grow));
       ctx.save();
       ctx.lineJoin = 'round';
-      for (const [w, col] of [[9, `rgba(170, 255, 120, ${0.35 * al})`], [4, `rgba(15, 10, 6, ${0.9 * al})`]]) {
+      for (const [w, col] of [[12, `rgba(150, 255, 110, ${0.22 * al})`], [7, `rgba(190, 255, 150, ${0.35 * al})`], [4, `rgba(12, 8, 5, ${0.95 * al})`]]) {
         ctx.strokeStyle = col; ctx.lineWidth = w;
+        if (w > 5) ctx.globalCompositeOperation = 'lighter'; else ctx.globalCompositeOperation = 'source-over';
         ctx.beginPath();
         for (let i = 0; i <= last; i++) {
           const u = i / n, o = m.pts[i];
@@ -575,6 +665,19 @@ G.Boss = (function () {
           i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
         }
         ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      // 솟은 돌 조각
+      for (const s of m.spikes || []) {
+        const appear = Math.min(1, Math.max(0, (m.k - s.u * 0.15) / 0.06));
+        const sink = Math.min(1, Math.max(0, (m.life - 0.45 - m.k) / 0.35));
+        const hh = s.h * appear * sink;
+        if (hh < 0.5) continue;
+        const x = m.x0 + dx * s.u + nx * s.side, y = F(m.z0 + dz * s.u + nz * s.side);
+        ctx.fillStyle = '#4d4a43'; ctx.strokeStyle = '#14110d'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(x - s.w, y); ctx.lineTo(x + s.lean * hh, y - hh); ctx.lineTo(x + s.w, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(160, 155, 140, .5)';
+        ctx.beginPath(); ctx.moveTo(x - s.w * 0.6, y); ctx.lineTo(x + s.lean * hh, y - hh); ctx.lineTo(x - s.w * 0.1, y); ctx.closePath(); ctx.fill();
       }
       ctx.restore();
       return;
@@ -622,5 +725,8 @@ G.Boss = (function () {
     if (kind === 'roar') startRoar(); else if (kind === 'vines') startVines(); else startSlam(player || G.player);
   }
 
-  return { state: boss, load, reset, update, drawBack, drawFront, drawables, updateUI, force, setPose, get def() { return def; } };
+  // 캐릭터들 위에 그리는 이펙트 (파편, 먼지, 잎, 번쩍임)
+  function drawTop(ctx) { if (G.BFX) G.BFX.drawTop(ctx); }
+
+  return { state: boss, load, reset, update, drawBack, drawFront, drawables, drawTop, updateUI, force, setPose, get def() { return def; } };
 })();

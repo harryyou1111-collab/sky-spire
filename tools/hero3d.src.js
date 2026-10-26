@@ -173,6 +173,7 @@ function onLoad(gltf) {
 }
 
 function resize() {
+  if (typeof pillarCache !== 'undefined') pillarCache.clear();   // 화면 크기가 바뀌면 기둥 그림도 다시
   const dpr = Math.min(3, G.viewScale || 1);       // 게임 단위 1 = 화면 픽셀 몇 개 (main.js가 알려줌)
   renderer.setPixelRatio(1);
   renderer.setSize(Math.round(H.W * dpr), Math.round(H.H * dpr), false);
@@ -293,6 +294,104 @@ function debugPose(name, t) {
 H.debugPose = debugPose;
 H.showPotion = () => { if (potion) potion.visible = true; };
 H.clips = () => Object.keys(actions);
+// =====================================================================
+// 3D 기둥: 부서진 이끼 기둥을 3D로 만들어 한 번 그려 두고(그림으로 저장), 게임에서는 그 그림을 씀
+//   게임 좌표의 기둥 { rx: 가로 반지름, rz: 깊이 반지름(화면에서 납작한 정도), h: 높이 } 를
+//   같은 각도로 내려다보는 3D로 바꿔서, 윗면 타원과 높이가 게임 판정과 정확히 일치
+// =====================================================================
+const PITCH = THREE.MathUtils.degToRad(22);
+const pillarCache = new Map();
+function rand(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function buildPillar(p, seed) {
+  const r = rand(seed || 7);
+  const Rx = p.rx, Rz = p.rz / Math.sin(PITCH), Hh = p.h / Math.cos(PITCH);
+  const grp = new THREE.Group();
+  const stone = new THREE.Color(0x6e6c66), stoneDark = new THREE.Color(0x3e3f3b), moss = new THREE.Color(0x56703a), mossDark = new THREE.Color(0x36472a);
+  const grad = new THREE.DataTexture(new Uint8Array([55, 55, 55, 255, 140, 140, 140, 255, 235, 235, 235, 255]), 3, 1, THREE.RGBAFormat);
+  grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
+  // 부서진 윗면: 한쪽으로 기울어진 단면 + 잔물결
+  const tx = r() * 2 - 1, tz = r() * 2 - 1, ph = r() * 6.28;
+  function piece(radTop, radBot, height, y0, jagged, flutes, mossy) {
+    const seg = 32, hs = 8;
+    const g = new THREE.CylinderGeometry(radTop, radBot, height, seg, hs, false);
+    g.translate(0, y0 + height / 2, 0);
+    const pos = g.attributes.position, col = [];
+    const jag = Array.from({ length: seg + 1 }, () => r());
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const ang = Math.atan2(z, x), rad = Math.hypot(x, z);
+      // 세로 홈 (기둥 느낌)
+      if (flutes && rad > 0.5 * radBot) { const f = 1 - 0.05 * Math.max(0, Math.cos(ang * 12)); x *= f; z *= f; }
+      // 부서진 윗면: 위쪽 가장자리를 들쭉날쭉하게 깎음
+      const top = y0 + height;
+      const isTop = y > top - 1e-3;
+      if (jagged && isTop) {
+        const ux = x / radTop, uz = z / radTop;
+        const cut = height * (0.06 + 0.12 * ((tx * ux + tz * uz) * 0.5 + 0.5) + 0.05 * Math.sin(ang * 5 + ph) * Math.hypot(ux, uz));
+        y -= cut;
+      }
+      pos.setXYZ(i, x * Rx, y * Hh, z * Rz);
+      // 색: 위를 볼수록·높을수록 이끼, 아래는 돌. 얼룩은 무작위
+      const up = (y - y0) / height;
+      const n = 0.5 + 0.25 * Math.sin(x * 9 + z * 5.3 + y * 7) + 0.25 * Math.sin(x * 23.1 - z * 17.7 + y * 3.1);   // 부드러운 얼룩 (점마다 무작위면 별무늬가 생김)
+      const c = stone.clone().lerp(stoneDark, n * 0.6);
+      const mossAmt = mossy ? Math.min(1, Math.max(0, (up - 0.72) * 2.4 + (n - 0.5) * 0.9 + (isTop ? 0.45 : 0))) : 0;
+      c.lerp(n > 0.5 ? moss : mossDark, mossAmt);
+      if (mossy && isTop) c.copy(moss).lerp(mossDark, 0.35);   // 윗면은 한 가지 색 (점마다 다르면 가운데로 모이는 줄무늬가 생김)
+      col.push(c.r, c.g, c.b);
+    }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    // 법선은 원래 원기둥 것을 씀 (다시 계산하면 윗면에 별 모양 줄무늬가 생김). 옆면은 눌린 비율만큼 보정
+    const nor = g.attributes.normal;
+    for (let i = 0; i < nor.count; i++) {
+      const v = new THREE.Vector3(nor.getX(i) / Rx, nor.getY(i) / Hh, nor.getZ(i) / Rz).normalize();
+      nor.setXYZ(i, v.x, v.y, v.z);
+    }
+    const m = new THREE.Mesh(g, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: grad }));
+    const line = new THREE.MeshBasicMaterial({ color: 0x0b0d0a, side: THREE.BackSide });
+    line.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed += normalize(normal) * 1.1;'); };
+    grp.add(m, new THREE.Mesh(g, line));
+  }
+  piece(1, 1, 0.88, 0.12, true, true, true);     // 몸통 (윗면 부서짐, 위쪽에 이끼)
+  piece(1.12, 1.16, 0.12, 0, false, false, false);  // 받침
+  return grp;
+}
+let propScene = null, propCam = null;
+function pillarImg(p) {
+  if (!H.ready) return null;
+  const key = [p.rx, p.rz, p.h, p.x].join(',');
+  if (pillarCache.has(key)) return pillarCache.get(key);
+  if (!propScene) {
+    propScene = new THREE.Scene();
+    propScene.add(new THREE.HemisphereLight(0xcfe8d0, 0x1a2418, 0.75));
+    const moon = new THREE.DirectionalLight(0xd8ffd0, 1.3); moon.position.set(-2, 4, -3); propScene.add(moon);
+    const front = new THREE.DirectionalLight(0xfff2dd, 0.7); front.position.set(1.5, 2, 4); propScene.add(front);
+    propCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -2000, 2000);
+  }
+  const obj = buildPillar(p, Math.round(p.x * 13 + p.z * 7) + 1);
+  propScene.add(obj);
+  // 화면에서 차지하는 영역 (게임 단위): 가로 ±(rx+여유), 세로 바닥선 아래 rz+여유 ~ 위로 h+rz+여유
+  const m = 6, w = 2 * (p.rx * 1.16 + m), up = p.h + p.rz + m, down = p.rz * 1.16 + m;
+  propCam.left = -w / 2; propCam.right = w / 2; propCam.top = up; propCam.bottom = -down;
+  propCam.position.set(0, Math.sin(PITCH) * 1000, Math.cos(PITCH) * 1000);
+  propCam.lookAt(0, 0, 0);
+  propCam.updateProjectionMatrix();
+  const dpr = Math.min(3, G.viewScale || 1);
+  const W = Math.ceil(w * dpr), Hpx = Math.ceil((up + down) * dpr);
+  const keep = renderer.getSize(new THREE.Vector2());
+  renderer.setSize(W, Hpx, false);
+  renderer.render(propScene, propCam);
+  const c = document.createElement('canvas'); c.width = W; c.height = Hpx;
+  c.getContext('2d').drawImage(renderer.domElement, 0, 0);
+  renderer.setSize(keep.x, keep.y, false);
+  propScene.remove(obj);
+  const img = { canvas: c, w, h: up + down, up };     // 그릴 때: (x - w/2, 바닥선 - up) 위치에 w × h 크기
+  pillarCache.set(key, img);
+  return img;
+}
+H.pillarImg = pillarImg;
+H.clearProps = () => pillarCache.clear();
+
 H.update = update; H.draw = draw; H.resize = resize;
 H.canvas = () => renderer && renderer.domElement;
 G.Hero3D = H;

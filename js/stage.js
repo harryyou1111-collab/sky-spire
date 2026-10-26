@@ -97,21 +97,52 @@ G.Stage = (function () {
     g.addColorStop(1, C.near);
     ctx.fillStyle = g;
     ctx.fillRect(-200, far, W + 400, NEAR_Y - far);
-    // 돌 틈 무늬
-    ctx.strokeStyle = 'rgba(0,0,0,.22)';
-    ctx.lineWidth = 1.2;
-    for (const m of marks) {
-      const y = floorY(m.z);
-      ctx.beginPath();
-      ctx.moveTo(m.x, y);
-      ctx.lineTo(m.x + m.w, y + m.w * m.a);
-      ctx.stroke();
+    const tex = C.tex && G.Render.getImg(C.tex);
+    if (tex) {
+      // 그림 바닥: 위에서 본 바닥 그림을 세로로 눌러서(원근) 반복해 깔기
+      //   texScale: 그림 1픽셀 = 게임 몇 단위 (가로), 세로는 texSquash 배로 더 눌림
+      const pat = ctx.createPattern(tex, 'repeat');
+      const k = C.texScale || 0.4, sq = C.texSquash || 0.5;
+      pat.setTransform(new DOMMatrix([k, 0, 0, k * sq, 0, far]));
+      ctx.fillStyle = pat;
+      ctx.fillRect(-200, far, W + 400, NEAR_Y - far);
+      // 멀수록 어둡고 흐리게 (안개), 가까울수록 살짝 밝게
+      const fog = ctx.createLinearGradient(0, far, 0, NEAR_Y);
+      fog.addColorStop(0, 'rgba(8, 14, 10, .75)');
+      fog.addColorStop(0.35, 'rgba(8, 14, 10, .25)');
+      fog.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = fog;
+      ctx.fillRect(-200, far, W + 400, NEAR_Y - far);
+    } else {
+      // 돌 틈 무늬 (바닥 그림이 없을 때)
+      ctx.strokeStyle = 'rgba(0,0,0,.22)';
+      ctx.lineWidth = 1.2;
+      for (const m of marks) {
+        const y = floorY(m.z);
+        ctx.beginPath();
+        ctx.moveTo(m.x, y);
+        ctx.lineTo(m.x + m.w, y + m.w * m.a);
+        ctx.stroke();
+      }
     }
     // 안쪽 벽과 만나는 선, 앞쪽 단면
     ctx.fillStyle = C.line;
     ctx.fillRect(-200, far - 2, W + 400, 2);
     ctx.fillStyle = C.front;
     ctx.fillRect(-200, NEAR_Y, W + 400, CFG.VIEW_H - NEAR_Y + 400);
+    if (tex) {
+      // 앞쪽 단면: 같은 돌 그림을 세워서 어둡게 → 돌로 쌓은 단 위에서 싸우는 느낌
+      const pat2 = ctx.createPattern(tex, 'repeat');
+      const k = (C.texScale || 0.4) * 0.8;
+      pat2.setTransform(new DOMMatrix([k, 0, 0, k, 0, NEAR_Y]));
+      ctx.fillStyle = pat2;
+      ctx.fillRect(-200, NEAR_Y, W + 400, 60);
+      const sh = ctx.createLinearGradient(0, NEAR_Y, 0, NEAR_Y + 60);
+      sh.addColorStop(0, 'rgba(0,0,0,.45)');
+      sh.addColorStop(1, C.front);
+      ctx.fillStyle = sh;
+      ctx.fillRect(-200, NEAR_Y, W + 400, 60);
+    }
     ctx.fillStyle = C.line;
     ctx.fillRect(-200, NEAR_Y, W + 400, 2);
     // 양쪽 끝 벽
@@ -124,6 +155,18 @@ G.Stage = (function () {
   function drawPillar(ctx, p, highlight) {
     const C = ground();
     const cx = p.x, top = floorY(p.z) - p.h, bot = floorY(p.z);
+    // 3D 기둥 그림이 준비됐으면 그것을 그림 (hero3d.js가 한 번 그려서 저장해 둠)
+    const img = G.Hero3D && G.Hero3D.pillarImg && G.Hero3D.pillarImg(p);
+    if (img) {
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.beginPath(); ctx.ellipse(cx, bot + 2, p.rx + 8, p.rz * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.drawImage(img.canvas, cx - img.w / 2, bot - img.up, img.w, img.h);
+      if (highlight) {   // 올라설 수 있을 때 윗면 테두리를 밝게
+        ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(232, 212, 154, .9)';
+        ctx.beginPath(); ctx.ellipse(cx, top, p.rx * 0.95, p.rz * 0.95, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      return;
+    }
     // 바닥 그림자
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.ellipse(cx, bot + 2, p.rx + 6, p.rz * 0.9, 0, 0, Math.PI * 2); ctx.fill();
