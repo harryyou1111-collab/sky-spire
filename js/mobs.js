@@ -2,7 +2,7 @@
 // mobs.js — 일반 몹: 등장, 추적, 공격 예고 → 공격 → 빈틈, 맞음, 죽음
 //
 // 몹 데이터는 floors.js (G.MobDefs). 여기는 움직임·판정·그리기
-// 그림: 3D 모델이 있는 몹은 G.Mob3D(tools/mob3d.src.js)가 그림, 없으면 임시 도형
+// 그림: 3D로 미리 구워 둔 그림이 있는 몹은 G.MobSprite(mobsprite.js)가 그림, 없으면 임시 도형
 //
 // 상태 흐름: spawn(등장) → chase(다가감) → windup(예고) → attack(판정) → recover(빈틈) → chase …
 //            맞으면 hurt(잠깐 경직, 예고가 끊김), 체력이 다하면 dead(쓰러지며 사라짐)
@@ -13,12 +13,12 @@ G.Mobs = (function () {
   const list = [];
   const arrows = [];
   let power = 1;
-  let animDt = 0;                 // 3D 동작을 진행할 시간 (update에서 쌓고 그릴 때 씀)
   const R = (a, b) => a + Math.random() * (b - a);
 
   // ---------- 만들기 ----------
   function spawn(type, x, z) {
     const d = G.MobDefs[type];
+    if (d.model) G.MobSprite.load(type);
     const m = {
       type, d, x, z, h: d.float || 0, vx: 0, vz: 0, vh: 0,
       hp: Math.round(d.hp * power), maxHp: Math.round(d.hp * power),
@@ -64,9 +64,9 @@ G.Mobs = (function () {
 
   // ---------- 매 프레임 ----------
   function update(dt, p) {
-    animDt += dt;
     for (const m of list) {
       m.t += dt;
+      m.at = (m.at || 0) + dt;      // 걷기·대기 같은 반복 동작용 시계
       m.flash = Math.max(0, m.flash - dt);
       m.cd = Math.max(0, m.cd - dt);
       const d = m.d;
@@ -161,7 +161,7 @@ G.Mobs = (function () {
   }
 
   // 쓰러진 뒤 사라질 때까지 (3D 몹은 쓰러지는 동작을 끝까지 보여줌)
-  const deadTime = m => (m.d.model && !m.exploded && G.Mob3D && G.Mob3D.has(m)) ? 1.9 : 0.7;
+  const deadTime = m => (m.d.model && !m.exploded && G.MobSprite.has(m)) ? 1.9 : 0.7;
 
   // 거한 공격 판정
   //   swing(휘두르기): 앞쪽 넓은 범위,  smash(내려찍기): 앞쪽 원형 + 땅 흔들림
@@ -220,7 +220,7 @@ G.Mobs = (function () {
     ctx.save();
     ctx.globalAlpha = fade;
     if (d.kind === 'bomber') drawWisp(ctx, m, y);
-    else if (!(G.Mob3D && G.Mob3D.draw(ctx, m, m.x, y))) drawSatyr(ctx, m, y);
+    else if (!G.MobSprite.draw(ctx, m, m.x, y)) drawSatyr(ctx, m, y);
     ctx.restore();
     // 체력 막대 (맞은 적 있을 때만)
     if (m.hp < m.maxHp && m.state !== 'dead') {
@@ -330,7 +330,6 @@ G.Mobs = (function () {
   }
 
   function drawables() {
-    if (G.Mob3D && G.Mob3D.ready) { G.Mob3D.frame(list, Math.min(0.1, animDt)); animDt = 0; }
     return [...list.map(m => ({ key: m.z, draw: ctx => drawMob(ctx, m) })),
             ...arrows.map(a => ({ key: a.z, draw: ctx => drawArrow(ctx, a) }))];
   }

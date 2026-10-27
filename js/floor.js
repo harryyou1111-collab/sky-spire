@@ -19,6 +19,7 @@ G.Floor = (function () {
     st.n = n; st.def = G.Floors[n];
     G.Mobs.setPower(st.def.power);
     G.Boss.load(st.def.boss);
+    G.MobSprite.preload([...new Set(st.def.path.zones.flatMap(z => z.mobs.map(g => g.type)))]);   // 몹 그림 미리 불러 두기
     startPath(player);
   }
   function startPath(player) {

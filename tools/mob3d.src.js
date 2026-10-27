@@ -1,12 +1,14 @@
 // =====================================================================
-// mob3d.src.js — 일반 몹 3D (hero3d.src.js와 함께 묶여서 js/hero3d.js가 됨)
+// mob3d.src.js — 일반 몹 3D → 그림(스프라이트) 굽기용
 //
-// 몹 여러 마리를 큰 화면 밖 캔버스 하나에 칸(slot)을 나눠 한 번에 그린 뒤,
-// 게임 화면에는 각 칸을 그림처럼 잘라 붙임 (주인공과 같은 만화풍 명암 + 외곽선)
-//   - 모델: assets/mobs/*.glb (Mixamo 뼈대 + 동작). 같은 모델을 몹마다 복사해서 씀
+// 게임에서 몹을 매 프레임 3D로 그리면 폰에서 너무 무거움 (몹 6마리에 11fps).
+// 그래서 이 파일은 게임에 넣지 않고, tools/bake.html에서 몹의 동작을 미리 한 장씩 그려서
+// assets/mobs/<몹>.webp(그림 모음) + .json(각 그림 위치)으로 저장하는 데만 씀 (tools/bake_mobs.py)
+// 게임은 js/mobsprite.js가 그 그림을 골라 붙임 → 몹이 많아도 가벼움
+//
+//   - 모델: assets/mobs/*.glb (Mixamo 뼈대 + 동작)
 //   - 무기: 창·활·몽둥이는 코드로 만든 모양. 손 위치를 따라가고, 방향은 무기마다 정한 규칙(WEAPONS)으로 정함
-//           (손 뼈 회전을 그대로 따르면 동작마다 창이 엉뚱한 쪽을 향해서)
-//   - 동작: 게임 상태(chase, windup, attack …)에 맞춰 동작과 그 시점을 고름 (POSE)
+//   - 주인공과 같은 만화풍 명암 + 외곽선, 같은 카메라 각도
 // =====================================================================
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -15,7 +17,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 const G = window.G;
 const UPM = 112 / 1.8;                  // 1미터 = 게임 단위 (주인공과 같은 비율)
 const PITCH = THREE.MathUtils.degToRad(22);
-const SW = 300, SH = 250, FOOT = 0.82;  // 칸 크기 (게임 단위), 발 위치 (칸 위에서부터 비율)
+const SW = 300, SH = 320, FOOT = 0.85;  // 칸 크기 (게임 단위), 발 위치 (칸 위에서부터 비율)
 const COLS = 4, ROWS = 2;               // 동시에 3D로 그리는 몹 수 = 8 (넘으면 임시 그림)
 
 // 모델 파일
@@ -70,7 +72,7 @@ function init() {
   const loader = new GLTFLoader(), v = '?v=' + (G.VERSION || 0);
   let left = Object.keys(MODELS).length;
   for (const [key, url] of Object.entries(MODELS)) {
-    loader.load(url + v, gltf => { prepModel(key, gltf); if (--left === 0) M.ready = true; },
+    loader.load((G.BAKE_BASE || '') + url + v, gltf => { prepModel(key, gltf); if (--left === 0) M.ready = true; },
       undefined, e => { console.warn('몹 3D 모델을 못 불러옴:', url, e); if (--left === 0) M.ready = true; });
   }
   resize();
@@ -321,7 +323,7 @@ function draw(ctx, m, x, y) {
 }
 function has(m) { return M.ready && !!m.d.model && !!M.models[m.d.model]; }
 
-M.frame = frame; M.draw = draw; M.has = has;
+M.frame = frame; M.draw = draw; M.has = has; M.SW = SW; M.SH = SH; M.FOOT = FOOT;
 M.canvas = () => renderer && renderer.domElement;
 M.clear = () => { for (const inst of pool.values()) dispose(inst); pool.clear(); };
 G.Mob3D = M;

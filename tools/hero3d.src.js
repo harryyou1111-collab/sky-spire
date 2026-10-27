@@ -397,5 +397,3 @@ H.canvas = () => renderer && renderer.domElement;
 G.Hero3D = H;
 if (!/[?&]old/.test(location.search)) init();   // 주소 끝에 ?old 를 붙이면 예전 도형 캐릭터
 
-// 일반 몹 3D (같은 three.js를 같이 씀)
-import './mob3d.src.js';
