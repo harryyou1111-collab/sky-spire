@@ -78,6 +78,8 @@ G.Lobby = (function () {
     },
     settings() {
       return ['설정', `
+        <div class="lb-vol"><span>효과음</span><input type="range" min="0" max="1" step="0.05" value="${G.Sound.volume.sfx}" data-vol="sfx"></div>
+        <div class="lb-vol"><span>배경음</span><input type="range" min="0" max="1" step="0.05" value="${G.Sound.volume.bgm}" data-vol="bgm"></div>
         <button class="lb-btn" id="lb-opening">오프닝 다시 보기</button>
         <button class="lb-btn danger" id="lb-reset">저장 기록 지우기</button>
         <p class="lb-hint">버전 v${G.VERSION}</p>`];
@@ -88,6 +90,10 @@ G.Lobby = (function () {
     panelTitle.textContent = title; panelBody.innerHTML = html;
     panel.classList.remove('hidden');
     panelBody.querySelectorAll('[data-equip]').forEach(b => b.addEventListener('click', () => { G.Equip.toggle(b.dataset.equip); openPanel(key); }));
+    panelBody.querySelectorAll('[data-vol]').forEach(r => r.addEventListener('input', () => {
+      G.Sound.setVolume(r.dataset.vol, Number(r.value));
+      if (r.dataset.vol === 'sfx') G.Sound.play('hit');      // 바로 들어 보기
+    }));
     const op = $('#lb-opening');
     if (op) op.addEventListener('click', () => { closePanel(); G.Descent.play(null); });
     const r = $('#lb-reset');
@@ -136,6 +142,7 @@ G.Lobby = (function () {
     const t = e.target.closest('button');
     if (!t) return;
     e.stopPropagation();
+    G.Sound.play('ui');
     if (t.classList.contains('eq-back')) closeEquip();
     else if (t.dataset.toggle) { eqList[t.dataset.toggle] = !eqList[t.dataset.toggle]; renderEquip(); }
     else if (t.dataset.pick !== undefined) {
@@ -159,6 +166,7 @@ G.Lobby = (function () {
     if (performance.now() - shownAt < 450) return;     // 시작 화면을 누른 손가락이 그대로 로비 버튼을 누르지 않게
     const t = e.target.closest('button, [data-open]');
     if (!t) return;
+    G.Sound.play('ui');
     if (t.dataset.open === 'equip') openEquip();
     else if (t.dataset.open) openPanel(t.dataset.open);
     else if (t.dataset.floor) { sel = Math.max(1, Math.min(maxSel(), sel + Number(t.dataset.floor))); refresh(); }

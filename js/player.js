@@ -193,6 +193,7 @@ G.Player = (function () {
     // 포션: 땅에 서 있고 다른 행동 중이 아닐 때 시작. 시작하는 순간 1개 소모
     if (I.pressed.heal && p.potions > 0 && p.drink <= 0 && p.onGround && !p.atk && !p.dash) {
       p.potions--; p.drink = G.CFG.potion.drinkTime;
+      G.Sound.play('drink');
       G.Game.updateHUD();
     }
     if (p.drink > 0) {
@@ -200,6 +201,7 @@ G.Player = (function () {
       steer(p, dt, ax * G.CFG.potion.moveMul, ay * G.CFG.potion.moveMul, 1);
       if (p.drink <= 0) {
         p.hp = Math.min(c.maxHp, p.hp + G.CFG.potion.heal);
+        G.Sound.play('heal');
         G.FX.text(p.x, G.Stage.screenY(p.z, p.h + 130), '+' + G.CFG.potion.heal, '#9df0a8');
         G.FX.heal(p);
         G.Game.updateHUD();
@@ -229,6 +231,7 @@ G.Player = (function () {
     p.onGround = G.Stage.move(p, dt);
     if (p.onGround && !wasGround) {           // 막 착지
       p.landTimer = c.landTime;
+      G.Sound.play('land', { vol: 0.6 });
       p.airDashUsed = false;
       p.jumps = 0;
       if (p.atk && p.atk.kind === 'down') p.atk = null;
@@ -286,6 +289,7 @@ G.Player = (function () {
   function jump(p, power) {
     const c = C();
     p.vh = c.jumpVel * power;
+    G.Sound.play('jump');
     p.jumps = p.onGround || p.coyote > 0 ? 1 : 2;
     p.jumpAnim = p.jumps === 2 ? 'jump2' : 'jump';
     p.onGround = false;
@@ -310,6 +314,7 @@ G.Player = (function () {
     if (Math.abs(dir.x) > 0.2) p.facing = Math.sign(dir.x);   // 그림은 옆모습이라 좌우만 바뀜
     p.atk = { kind, def: A[kind], t: 0, phase: 'startup', hit: new Set(), queued: false, lunged: false, id: ++p.atkCount, dir };
     if (kind !== 'down') G.FX.slash(p, dir, A[kind]);
+    G.Sound.play(kind === 'side3' || kind === 'down' ? 'swing3' : kind === 'side2' ? 'swing2' : 'swing');
     p.atkBuf = 0;
     p.chainT = 0;
   }
@@ -390,6 +395,7 @@ G.Player = (function () {
     }
     p.atk = null;
     p.dash = { t: 0, dx, dz };
+    G.Sound.play('dodge');
     p.dashCd = d.cooldown;
     p.iframe = d.iframe;
     p.dashBuf = 0;

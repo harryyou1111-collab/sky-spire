@@ -234,6 +234,7 @@ G.Boss = (function () {
   function impact(player) {
     const s = boss.slam, p = s.p, L = s.line;
     s.phase = 'stuck'; s.t = 0;
+    G.Sound.play('smash');
     playSeg('drop', 1);
     boss.marks = boss.marks.filter(m => m !== s.mark);
     // 갈라진 땅: 들쭉날쭉한 선 (미리 모양을 정해 둠)
@@ -294,7 +295,7 @@ G.Boss = (function () {
           const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 120;
           G.BFX.motes(m.x + Math.cos(a) * r, def.baseZ, to.h + Math.sin(a) * r * 0.6, 1, to);
         }
-        if (P.t >= p.telegraph) { P.stage = 'roar'; G.FX.shake(8, 0.35); G.BFX.screenFlash('120, 200, 110', 0.25); }
+        if (P.t >= p.telegraph) { P.stage = 'roar'; G.Sound.play('roar'); G.FX.shake(8, 0.35); G.BFX.screenFlash('120, 200, 110', 0.25); }
       }
       if (P.stage === 'roar') {
         boss.swellT = 1;
@@ -318,6 +319,7 @@ G.Boss = (function () {
       else if (!P.rising) playSeg('crouch', (P.t - p.telegraph) / p.active, 'vines');
       if (!P.pressed && P.t >= p.telegraph) {
         P.pressed = true;
+        G.Sound.play('vines');
         G.FX.shake(10, 0.32);
         for (const L of boss.lanes) {
           const zc = (L.z0 + L.z1) / 2;
@@ -381,6 +383,7 @@ G.Boss = (function () {
     updateUI();
     if (boss.hp <= 0) {
       boss.mode = 'dying';
+      G.Sound.play('roar', { rate: 0.7 });
       boss.timer = 2.4;
       boss.target.active = false;
       boss.slam = null; boss.pattern = null;

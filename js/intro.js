@@ -27,7 +27,7 @@ G.BossIntro = (function () {
   const span = (t, [a, b]) => ease((t - a) / (b - a));
 
   function start(short) {
-    Object.assign(it, { on: true, t: 0, short, T: short ? SHORT : FULL, roared: false, skipped: false });
+    Object.assign(it, { on: true, t: 0, short, T: short ? SHORT : FULL, roared: false, skipped: false, carded: false });
     document.body.classList.add('cine');
     const B = G.Boss, D = B.def, rise = (D.intro && D.intro.rise) || 'riseclip';
     B.state.mode = 'intro';
@@ -65,6 +65,7 @@ G.BossIntro = (function () {
       // 포효: 화면 흔들림 + 빛 + 먼지
       if (!it.roared && it.t >= T.roar) {
         it.roared = true;
+        G.Sound.play('roar');
         G.FX.shake(14, 0.7);
         G.BFX.flash(D.baseX, D.baseZ, 160, 420, D.theme.moon, 0.5);
         G.BFX.dust(D.baseX - 200, 40, 8, 1.2, '90, 80, 60'); G.BFX.dust(D.baseX + 200, 40, 8, 1.2, '90, 80, 60');
@@ -73,6 +74,7 @@ G.BossIntro = (function () {
       // 눈·입 빛: 포효 순간 확 밝아졌다가 서서히 꺼짐
       B.state.introGlow = it.t < T.roar - 0.4 ? 0 : it.t < T.roar ? (it.t - (T.roar - 0.4)) / 0.4 * 0.6 : Math.max(0, 1.3 - (it.t - T.roar) * 0.9);
     }
+    if (!it.carded && it.t >= T.card[0]) { it.carded = true; G.Sound.play('banner'); }
     // 주인공은 보스 쪽을 보고 가만히
     player.vx = player.vz = 0; player.facing = 1;
     if (it.t >= T.end) { finish(); return true; }

@@ -15,6 +15,7 @@ G.Save = (function () {
     owned: { equip: [], skills: [] },       // 가진 장비·스킬 (보스 보상)
     stats: { deaths: 0, playTime: 0 },
     seenOpening: false,                     // 오프닝(탑 꼭대기 → 입구)을 봤는지
+    settings: { sfx: 0.8, bgm: 0.5 },       // 음량 (효과음, 배경음)
   });
   let data = load();
 

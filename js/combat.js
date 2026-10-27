@@ -55,6 +55,7 @@ G.Combat = (function () {
     p.onGround = false;
     if (Math.abs(dx) > 0.2) p.facing = -Math.sign(dx);   // 맞은 쪽을 바라봄
     p.hurt = c.hurtTime;
+    G.Sound.play('hurt');
     p.iframe = c.hurtIframe;
     G.FX.hitstop(0.08);
     G.FX.shake(6, 0.2);
@@ -78,7 +79,7 @@ G.Combat = (function () {
       hitAny = true;
 
       const push = Math.abs(a.dir.x) > 0.3 ? Math.sign(a.dir.x) : (Math.random() < 0.5 ? -1 : 1);
-      if (!firstHit) firstHit = t;
+      if (!firstHit) { firstHit = t; G.Sound.play(t.mob ? (dmg >= 15 ? 'hit_heavy' : 'hit') : 'hit_boss'); }
       if (t.onHit) t.onHit(dmg, push, a);
       else {
         t.total += dmg;
@@ -97,6 +98,7 @@ G.Combat = (function () {
     const th = firstHit && a.kind === 'side3' && !a.thorned && G.Equip.special('thorns');
     if (th) {
       a.thorned = true;
+      G.Sound.play('thorns');
       const cx = firstHit.x, cz = firstHit.z;
       G.BFX.thorns(cx, cz, th.radius);
       G.FX.shake(4, 0.15);

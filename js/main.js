@@ -31,6 +31,7 @@
       Object.assign(player, G.Player.create(START.x, START.z));
       G.Floor.start(n, player);
       G.Game.mode = 'play'; runTime = 0;
+      G.Sound.bgm('path');
       G.Lobby.hide();
       result.classList.add('hidden'); pauseEl.classList.add('hidden');
       updateCamera(0, true);
@@ -39,6 +40,7 @@
     toLobby() {
       G.Save.save();
       G.Game.mode = 'lobby';
+      G.Sound.bgm('lobby');
       result.classList.add('hidden'); pauseEl.classList.add('hidden');
       G.Lobby.show();
     },
@@ -50,6 +52,8 @@
       const rw = G.Boss.def.reward, got = rw && rw.equip ? G.Equip.grant(rw.equip) : null;
       const rwEl = result.querySelector('.reward');
       rwEl.classList.toggle('hidden', !got);
+      G.Sound.bgm(null); G.Sound.play('win');
+      if (got) setTimeout(() => G.Sound.play('reward'), 900);
       if (got) { rwEl.querySelector('img').src = got.icon + '?v=' + G.VERSION; rwEl.querySelector('b').textContent = got.name; }
       const next = G.Floors[n + 1];
       const rec = `기록 ${Math.floor(runTime / 60)}:${String(Math.floor(runTime % 60)).padStart(2, '0')}${first ? '' : ''}`;
@@ -59,6 +63,7 @@
     },
     lose() {
       G.Save.addDeath();
+      G.Sound.bgm(null); setTimeout(() => G.Sound.play('lose'), 700);
       result.querySelector('.reward').classList.add('hidden');
       setTimeout(() => show('패배', '쓰러졌습니다', ['다시 도전', () => G.Game.restart()], ['로비로', () => G.Game.toLobby()]), 900);
     },
@@ -285,7 +290,9 @@
   const start = document.getElementById('start');
   start.addEventListener('pointerdown', () => {
     start.classList.add('hidden');
+    G.Sound.unlock();
     G.Lobby.show();
+    G.Sound.bgm('lobby');
     const el = document.documentElement;
     try {
       const req = el.requestFullscreen || el.webkitRequestFullscreen;

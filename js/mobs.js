@@ -51,6 +51,7 @@ G.Mobs = (function () {
     m.kbx = dx / l; m.kbz = dz / l * 0.6; m.kb = (dmg >= 15 ? 300 : 200) * (m.d.kbMul ?? 1);
     if (m.hp <= 0) {
       m.state = 'dead'; m.t = 0; m.target.active = false;
+      G.Sound.play('mob_die', { vol: 0.8 });
       G.BFX.dust(m.x, m.z, 6, 1, '90, 80, 60');
       if (m.d.kind === 'bomber') G.BFX.motes(m.x, m.z, m.h, 12);
       else G.BFX.leaves(m.x, m.z, 40, 6);
@@ -202,14 +203,17 @@ G.Mobs = (function () {
     if (d.kind === 'heavy' && m.atkKind === 'smash') {   // 내려찍는 순간 땅이 울림
       const cx = m.x + m.face * d.attacks.smash.reach;
       G.FX.shake(6, 0.22);
+      G.Sound.play('smash', { vol: 0.65, rate: 1.15 });
       G.BFX.dust(cx, m.z, 8, 1.1, '90, 80, 60'); G.BFX.debris(cx, m.z, 5, 0.8);
     }
     if (d.kind === 'ranged') {
       const ax = m.aim.x - m.x, az = m.aim.z - m.z, l = Math.hypot(ax, az) || 1;
+      G.Sound.play('arrow', { vol: 0.7 });
       arrows.push({ x: m.x + m.face * 20, z: m.z, h: d.arrowH, vx: ax / l * d.arrowSpeed, vz: az / l * d.arrowSpeed, life: 2.2, dmg: Math.round(d.dmg * power) });
     } else if (d.kind === 'bomber') {
       // 터짐: 범위 안이면 피해, 몹은 사라짐
       G.BFX.flash(m.x, m.z, m.h, d.blast * 1.4, '180, 255, 140', 0.25);
+      G.Sound.play('explode', { vol: 0.8 });
       G.BFX.motes(m.x, m.z, m.h, 16);
       G.FX.shake(5, 0.18);
       if (!p.dead && Math.hypot(p.x - m.x, (p.z - m.z) * 1.6) < d.blast && p.h < m.h + 40) G.Combat.hurtPlayer(p, Math.round(d.dmg * power), m.x, m.z);

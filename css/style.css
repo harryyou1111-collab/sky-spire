@@ -372,6 +372,9 @@ body.in-lobby #hud, body.in-lobby #controls, body.in-lobby #boss-bar, body.in-lo
 .lb-table tr.done td { color: #f1ead8; }
 .lb-table tr.done td:nth-child(3) { color: #8fe08a; }
 .lb-btn { display: block; margin: 6px auto 0; padding: 11px 22px; border-radius: 10px; font: 700 14px system-ui, sans-serif; }
+.lb-vol { display: flex; align-items: center; gap: 12px; margin: 4px 6px 10px; font-size: 13px; color: #cfc6b0; }
+.lb-vol span { width: 52px; }
+.lb-vol input { flex: 1; accent-color: #d9c38a; touch-action: pan-x; }
 .lb-btn { color: #e6cd92; background: transparent; border: 1px solid rgba(230, 205, 146, .45); }
 .lb-btn.danger { color: #ff8a7a; background: transparent; border: 1px solid rgba(255, 120, 100, .55); }
 

@@ -29,6 +29,7 @@ G.Floor = (function () {
     GATE.x = P.gateX;
     Object.assign(st, { phase: 'path', zone: 0, locked: false, gateK: 0, fade: 0, t: 0, wall: 0, go: 0 });
     st.banner = { text: `${st.n}F`, sub: '적을 쓰러뜨리며 앞으로 나아가라', t: 0, life: 2.0 };
+    G.Sound.bgm('path');
     if (player) { player.x = 120; player.z = 90; player.vx = player.vz = 0; }
     if (G.Boss.state.target) G.Boss.state.target.active = false;
     showUI();
@@ -41,6 +42,7 @@ G.Floor = (function () {
     G.Boss.reset();
     if (player) { player.x = 220; player.z = 95; player.vx = player.vz = 0; player.facing = 1; }
     G.BossIntro.start(!!short);
+    G.Sound.bgm('boss');
     showUI();
   }
   // 다시 도전: 보스전에서 죽었으면 보스전부터(짧은 연출), 길에서 죽었으면 길 처음부터
@@ -86,8 +88,9 @@ G.Floor = (function () {
         G.FX.shake(4, 0.25);
         if (st.zone >= P.zones.length) {
           st.phase = 'open'; st.t = 0;
+          G.Sound.play('gate');
           G.BFX.dust(GATE.x, GATE.z, 10, 1.2, '90, 80, 60');
-        } else st.go = 2.5;
+        } else { st.go = 2.5; G.Sound.play('thorns', { rate: 0.8 }); }
       }
       updateCounter();
     } else if (st.phase === 'open') {
@@ -116,6 +119,7 @@ G.Floor = (function () {
   function lock(Z, player) {
     st.locked = true; st.lockZ = Z; st.go = 0;
     G.Stage.setBounds(Z.x0, Z.x1);
+    G.Sound.play('vines', { vol: 0.7 });
     if (player.x < Z.x0 + 30) player.x = Z.x0 + 30;
     G.FX.shake(3, 0.2);
     let k = 0;

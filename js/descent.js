@@ -28,6 +28,7 @@ G.Descent = (function () {
     [14.4, 18.1, '천공탑', 'title'],   // 제목은 길게 머문 뒤 빛
   ];
 
+  const SFX = [[5.2, 'whoosh', { vol: 0.7 }], [8.2, 'whoosh', { vol: 0.9, rate: 1.15 }], [12.2, 'gate'], [14.4, 'banner'], [18.0, 'smash', { vol: 0.5, rate: 1.4 }]];
   const cv = document.createElement('canvas');
   cv.id = 'descent';
   cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:14;display:none;touch-action:none';
@@ -52,7 +53,8 @@ G.Descent = (function () {
 
   function play(done) {
     if (!img.src) img.src = TOWER.src + '?v=' + (G.VERSION || 0);
-    run = { t: 0, done, last: performance.now(), prevCy: null, clouds: [], lines: [] };
+    run = { t: 0, done, last: performance.now(), prevCy: null, clouds: [], lines: [], snd: {} };
+    G.Sound.bgm('opening');
     for (let i = 0; i < 9; i++) run.clouds.push({ x: Math.random(), y: Math.random() * 3, r: 0.35 + Math.random() * 0.45, a: 0.35 + Math.random() * 0.35 });
     for (let i = 0; i < 40; i++) run.lines.push({ x: Math.random(), y: Math.random(), l: 0.05 + Math.random() * 0.15 });
     cv.style.display = 'block';
@@ -62,6 +64,7 @@ G.Descent = (function () {
     if (!run) return;
     const d = run.done; run = null;
     cv.style.display = 'none';
+    if (!d) G.Sound.bgm('lobby');
     if (d) d();
   }
   // 누르면 건너뜀 (번쩍 장면으로)
@@ -72,6 +75,8 @@ G.Descent = (function () {
     const dt = Math.min(0.05, (now - run.last) / 1000); run.last = now;
     run.t += dt;
     const t = run.t;
+    // 효과음: [시간, 소리]
+    for (const [at, name, o] of SFX) if (t >= at && !run.snd[at]) { run.snd[at] = 1; if (t < at + 0.5) G.Sound.play(name, o); }
     const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
     if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
