@@ -16,6 +16,8 @@ G.Items = {
     atk: 3,
     special: { kind: 'thorns', dmg: 6, radius: 60, text: '3타가 맞으면 가시덩굴이 솟아 주변 적에게 6 추가 피해' },
     sword: { img: 'assets/items/pan_hornblade.webp', shape: 'assets/items/pan_hornblade.json', len: 1.3, grip: [1700, 258] },
+    // 휘두를 때 이펙트 색 (칼날 자국 안쪽, 테두리, 칼끝 궤적, 맞을 때 불꽃) + 잎이 흩날림
+    fx: { slash: '120, 255, 110', heavy: '170, 255, 90', edge: '220, 255, 200', trail: '150, 255, 130', spark: '160, 255, 120', leaves: true },
   },
 };
 
@@ -51,5 +53,7 @@ G.Equip = (function () {
     O.push(id); G.Save.save();
     return G.Items[id];
   }
-  return { item, list, atkBonus, special, toggle, set, apply, grant, BASE_WEAPON };
+  // 지금 든 무기의 이펙트 색 (없으면 null = 기본 색)
+  function fx() { const w = item('weapon'); return (w && w.fx) || null; }
+  return { item, list, atkBonus, special, toggle, set, apply, grant, fx, BASE_WEAPON };
 })();

@@ -27,17 +27,19 @@ G.FX = (function () {
       r: fx0 + w * 0.85, chest: -(y + hh / 2),
       delay: def.startup, life: def.active + 0.1, age: 0,
       heavy: def.dmg >= 15,
+      wfx: G.Equip ? G.Equip.fx() : null,          // 무기 이펙트 색 (items.js의 fx)
     });
   }
 
   function hitstop(t) { fx.hitstop = Math.max(fx.hitstop, t); }
 
   function spark(x, y, dir, power) {
+    const W = G.Equip && G.Equip.fx();               // 무기 이펙트가 있으면 불꽃도 그 색
     const n = 8 + Math.round(power * 6);
     for (let i = 0; i < n; i++) {
       const a = (Math.random() - 0.5) * 1.6 + (dir > 0 ? 0 : Math.PI);
       const s = 200 + Math.random() * 380 * power;
-      fx.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.22 + Math.random() * 0.12, age: 0 });
+      fx.sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.22 + Math.random() * 0.12, age: 0, col: W && W.spark });
     }
     // 중심 섬광
     fx.sparks.push({ x, y, flash: true, size: 16 + power * 14, life: 0.08, age: 0 });
@@ -99,11 +101,19 @@ G.FX = (function () {
       for (let i = 0; i <= N; i++) { const [x, y] = P(R, a0 + sweep * i / N); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
       for (let i = N; i >= 0; i--) { const t = i / N; const [x, y] = P(r + (R - r) * (1 - Math.sin(t * Math.PI)) * 0.6, a0 + sweep * t); ctx.lineTo(x, y); }
       ctx.closePath();
-      const col = s.heavy ? '255, 215, 140' : '215, 228, 255';
+      const W = s.wfx;
+      const col = W ? (s.heavy ? W.heavy : W.slash) : (s.heavy ? '255, 215, 140' : '215, 228, 255');
       ctx.fillStyle = `rgba(${col}, ${0.7 * (1 - k)})`;
       ctx.fill();
+      // 무기 이펙트: 잎과 빛 알갱이가 칼날 자국을 따라 흩날림 (한 번만)
+      if (W && W.leaves && !s.emitted && G.BFX) {
+        s.emitted = true;
+        const tipA = s.ang, tx = s.p.x + Math.cos(tipA) * R * 0.8, tz = s.p.z + Math.sin(tipA) * R * 0.8;
+        G.BFX.leaves(tx, tz, s.p.h + s.chest, s.heavy ? 7 : 4, Math.cos(tipA) || 1, 0.8);
+        G.BFX.motes(tx, tz, s.p.h + s.chest, s.heavy ? 10 : 6, null, W.spark);
+      }
       // 바깥쪽 날카로운 테두리
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.9 * (1 - k)})`;
+      ctx.strokeStyle = `rgba(${W ? W.edge : '255, 255, 255'}, ${0.9 * (1 - k)})`;
       ctx.lineWidth = s.heavy ? 2.5 : 1.8;
       ctx.beginPath();
       for (let i = 0; i <= N; i++) { const [x, y] = P(R, a0 + sweep * i / N); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
@@ -129,12 +139,13 @@ G.FX = (function () {
     // 검 궤적: 오래된 점일수록 투명한 띠
     const tr = fx.trail;
     if (tr.length > 1) {
+      const W = G.Equip && G.Equip.fx(), tcol = W ? W.trail : '230, 235, 255';
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 1; i < tr.length; i++) {
         const a = tr[i - 1], b = tr[i];
         const alpha = 0.55 * (1 - b.age / 0.09);
-        ctx.fillStyle = `rgba(230, 235, 255, ${alpha})`;
+        ctx.fillStyle = `rgba(${tcol}, ${alpha})`;
         ctx.beginPath();
         ctx.moveTo(a.base.x, a.base.y); ctx.lineTo(a.tip.x, a.tip.y);
         ctx.lineTo(b.tip.x, b.tip.y); ctx.lineTo(b.base.x, b.base.y);
@@ -154,7 +165,7 @@ G.FX = (function () {
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
       } else {
-        ctx.strokeStyle = s.green ? `rgba(140, 255, 160, ${k})` : `rgba(255, 220, 140, ${k})`;
+        ctx.strokeStyle = s.green ? `rgba(140, 255, 160, ${k})` : s.col ? `rgba(${s.col}, ${k})` : `rgba(255, 220, 140, ${k})`;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 0.025, s.y - s.vy * 0.025); ctx.stroke();
       }

@@ -23,8 +23,13 @@ G.Sound = (function () {
     hit_heavy: ['hit', { rate: 0.85, vol: 1 }],
     hit_boss: ['hit', { rate: 0.72, vol: 1 }],
   };
-  // 배경음 (파일을 넣으면 true로)
-  const BGM = { lobby: false, path: false, boss: false, opening: false };
+  // 배경음 (파일을 넣으면 켬). loop: [반복 시작, 반복 끝](초) — 처음엔 0초부터 재생하고, 끝에 닿으면 반복 시작으로 돌아감
+  //   (전주는 한 번만 나오고 본 곡만 반복. 박자가 맞는 지점을 골라 둬서 이음매가 안 들림)
+  const BGM = {
+    lobby: { loop: [31.393, 102.50467] },  // March of Fireworks (Pixabay, lui_epicmusic) — 앞 31초 전주 후 40마디 반복
+    path: null, opening: null,
+    boss: { loop: [11.865, 131.85474] },    // Blood Ascendant (Pixabay, davidjbarrios)
+  };
 
   async function loadFile(url) {
     const r = await fetch(url + '?v=' + (G.VERSION || 0));
@@ -94,6 +99,8 @@ G.Sound = (function () {
       const b = bgmCache[name] || (bgmCache[name] = await loadFile(`assets/bgm/${name}.mp3`));
       if (curName !== name) return;
       const s = ctx.createBufferSource(); s.buffer = b; s.loop = true;
+      const L = BGM[name].loop;
+      if (L) { s.loopStart = L[0]; s.loopEnd = L[1]; }
       const g = ctx.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(1, ctx.currentTime, 0.6);
       s.connect(g); g.connect(bgmGain); s.start();
       cur = { s, g };
