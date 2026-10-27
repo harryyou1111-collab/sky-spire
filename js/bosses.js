@@ -34,6 +34,7 @@ G.BossDefs = {
       idle:       { clip: 'slam', frame: 0 },      // 내려찍기 영상의 첫 장면 = 쉬는 자세 (영상과 이어지게)
       slamclip:   { clip: 'slam' },                // 내려찍기 영상 재생 중
       vinesclip:  { clip: 'vines' },               // 가시덩굴 영상 재생 중
+      riseclip:   { clip: 'rise' },                // 가시덩굴 뒤 웅크린 자세에서 일어나기
     },
 
     // ---------- 동작 영상 ----------
@@ -54,6 +55,13 @@ G.BossDefs = {
         cx: 303, bottom: 530, scale: 1.472,
         glow: [[65, 525], [539, 525]],               // 두 손
         seg: { raise: [0, 14], drop: [14, 20], crouch: [20, 35] },
+      },
+      // 일어나기: 가시덩굴 영상의 웅크린 장면 → 쉬는 자세 (따로 만든 영상, 위치·크기는 가시덩굴과 같음)
+      rise: {
+        sheets: [0, 1].map(i => `assets/bosses/pan/rise_${i}.webp`),
+        fw: 620, fh: 553, cols: 4, per: 16,
+        cx: 303, bottom: 530, scale: 1.472,
+        seg: { up: [0, 30] },
       },
     },
 
@@ -107,8 +115,9 @@ G.BossDefs = {
         hitLanes: 2,       // 그중 덩굴이 솟는 줄 수
         height: 42,        // 덩굴 높이 (이보다 높이 있으면 안 맞음)
         drop: 0.14,        // 두 손을 내리치는 시간 (예고 끝에 땅에 닿음)
+        rise: 0.6,         // 웅크린 자세에서 일어나는 시간 (영상 재생)
         dmg: 20,
-        rest: 1.0,
+        rest: 0.5,         // (일어나는 0.6초가 늘어난 만큼 줄임)
       },
     },
 
@@ -117,7 +126,7 @@ G.BossDefs = {
       at: 0.5,
       slam:  { telegraph: 0.7, stuck: 1.25, recover: 0.7, rest: 0.35, double: true },
       roar:  { rings: 4, gap: 0.38, rest: 0.7 },
-      vines: { hitLanes: 3, telegraph: 0.85, rest: 0.7 },
+      vines: { hitLanes: 3, telegraph: 0.85, rest: 0.25 },
     },
   },
 };

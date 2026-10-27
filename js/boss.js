@@ -315,7 +315,7 @@ G.Boss = (function () {
       const up = p.telegraph - p.drop;
       if (P.t < up) playSeg('raise', P.t / up, 'vines');
       else if (P.t < p.telegraph) playSeg('drop', (P.t - up) / p.drop, 'vines');
-      else playSeg('crouch', (P.t - p.telegraph) / p.active, 'vines');
+      else if (!P.rising) playSeg('crouch', (P.t - p.telegraph) / p.active, 'vines');
       if (!P.pressed && P.t >= p.telegraph) {
         P.pressed = true;
         G.FX.shake(10, 0.32);
@@ -324,9 +324,17 @@ G.Boss = (function () {
           for (let x = 40; x < G.CFG.ARENA_W; x += 70 + Math.random() * 50) { G.BFX.dust(x, zc, 2, 0.8, '85, 75, 55'); G.BFX.debris(x, zc, 2, 0.6); }
         }
       }
-      if (P.t >= p.telegraph + p.active) {
-        setPose('idle', false, 0.35);                                  // 웅크린 자세 → 쉬는 자세 (비슷한 자세라 겹쳐 넘김)
-        boss.pattern = null; boss.timer = p.rest;
+      const end = p.telegraph + p.active;
+      if (P.t >= end && !P.rising) {
+        P.rising = true;
+        setPose('riseclip', false, 0.1, 0);                            // 같은 웅크린 장면에서 이어서 일어나기 영상으로
+      }
+      if (P.rising) {
+        playSeg('up', (P.t - end) / p.rise, 'rise');
+        if (P.t >= end + p.rise) {
+          setPose('idle', false, 0.2);
+          boss.pattern = null; boss.timer = p.rest;
+        }
       }
     }
   }
