@@ -13,7 +13,8 @@
 
   const START = { x: 450, z: 100 };
   const player = G.Player.create(START.x, START.z);
-  G.Boss.load('pan');             // 층마다 bosses.js의 다른 보스를 불러옴
+  G.player = player;
+  G.Floor.start(1, player);       // 1층부터: 몹 구간 → 보스방 (floors.js)
 
   // ---------- 게임 흐름: 승리 / 패배 / 재도전, 플레이어 체력 표시 ----------
   const result = document.getElementById('result');
@@ -21,17 +22,24 @@
   const potionCount = document.getElementById('potion-count');
   const potionBtn = document.querySelector('[data-act="heal"]');
   G.Game = {
-    win() { show('승리', `${G.Boss.def.name}을(를) 쓰러뜨렸습니다`); },
+    win() {
+      G.Floor.cleared();
+      show(`${G.Floor.state.n}층 클리어`, `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · 다음 층은 준비 중`);
+      result.querySelector('button').textContent = '처음부터';
+    },
     lose() { setTimeout(() => show('패배', '쓰러졌습니다'), 900); },
     updateHUD() {
       hpFill.style.width = (player.hp / CFG.player.maxHp * 100) + '%';
       potionCount.textContent = player.potions;
       potionBtn.classList.toggle('empty', player.potions <= 0);
     },
+    // 다시 도전: 몹 구간에서 죽었으면 몹 구간부터, 보스전에서 죽었으면 보스전부터 (체력·포션은 가득)
     restart() {
+      const cleared = G.Floor.state.phase === 'clear';
       Object.assign(player, G.Player.create(START.x, START.z));
-      G.Boss.reset();
+      if (cleared) G.Floor.start(G.Floor.state.n, player); else G.Floor.retry(player);
       result.classList.add('hidden');
+      result.querySelector('button').textContent = '다시 도전';
       G.Game.updateHUD();
     },
   };
@@ -170,7 +178,7 @@
       }
       G.Player.animate(player, dt);
       G.Combat.update(dt);
-      G.Boss.update(dt, player);
+      G.Floor.update(dt, player);    // 몹 구간 / 문 / 보스전 진행
     }
     G.FX.update(dt);
     updateCamera(dt);
@@ -180,16 +188,20 @@
     drawBackground();
     const sx = fx.shakeX, sy = fx.shakeY;   // 화면 흔들림
     ctx.setTransform(scale, 0, 0, scale, (-camX + sx) * scale, (-camY + sy) * scale);
-    G.Boss.drawBack(ctx);      // 보스 뒤 기운
+    const bossPhase = G.Floor.isBoss();
+    if (bossPhase) G.Boss.drawBack(ctx);      // 보스 뒤 기운
     G.Stage.drawFloor(ctx);
-    G.Boss.drawFront(ctx);     // 예고 표시 + 보스 그림
+    if (bossPhase) G.Boss.drawFront(ctx);     // 예고 표시 + 보스 그림
+    else { G.Floor.drawGate(ctx); G.Mobs.drawAims(ctx); }   // 보스방 문, 궁수 조준선
     // 안쪽(z 작음)부터 그려서 앞에 있는 것이 위에 보이게
-    const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), ...G.Boss.drawables(), G.Player.drawable(player)];
+    const list = [...G.Stage.drawables(player), ...G.Combat.drawables(), ...(bossPhase ? G.Boss.drawables() : G.Mobs.drawables()), G.Player.drawable(player)];
     list.sort((a, b) => a.key - b.key);
     for (const d of list) d.draw(ctx);
     G.Boss.drawTop(ctx);       // 보스 공격 이펙트 (파편, 먼지, 잎)
     G.FX.drawFront(ctx);
     if (CFG.debug) G.Combat.drawDebug(ctx, player);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    G.Floor.drawOverlay(ctx, viewW, CFG.VIEW_H);   // 층·보스 이름, 문으로 들어갈 때 어두워짐
     if (CFG.debug) drawDebug();
 
     requestAnimationFrame(frame);
@@ -218,6 +230,4 @@
   G.Input.init();
   requestAnimationFrame(frame);
 
-  // 개발 확인용: 콘솔에서 G.player 로 상태 확인 가능
-  G.player = player;
 })();

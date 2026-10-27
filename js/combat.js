@@ -77,7 +77,7 @@ G.Combat = (function () {
       hitAny = true;
 
       const push = Math.abs(a.dir.x) > 0.3 ? Math.sign(a.dir.x) : (Math.random() < 0.5 ? -1 : 1);
-      if (t.onHit) t.onHit(a.def.dmg);
+      if (t.onHit) t.onHit(a.def.dmg, push, a);
       else {
         t.total += a.def.dmg;
         t.flash = 0.1;
