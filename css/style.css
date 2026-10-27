@@ -59,6 +59,15 @@ html, body {
   background: linear-gradient(90deg, #b8462e, #f0a050);
 }
 
+/* ---------- 몹 구간: 남은 적 ---------- */
+#mob-count {
+  position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none; text-align: center;
+  font-size: 13px; font-weight: 700; letter-spacing: 3px;
+  color: #f2d9a6; text-shadow: 0 1px 4px #000;
+}
+
 /* ---------- 터치 버튼 ---------- */
 #controls { position: fixed; inset: 0; pointer-events: none; }
 .pad {
