@@ -67,8 +67,12 @@
   // ---------- 카메라 ----------
   function updateCamera(dt, snap) {
     let target = player.x - viewW / 2 + player.facing * CFG.camera.lookAhead;
-    if (viewW >= CFG.ARENA_W) target = (CFG.ARENA_W - viewW) / 2;
-    else target = Math.max(0, Math.min(CFG.ARENA_W - viewW, target));
+    // 지금 움직일 수 있는 범위(구역 잠금 포함) 안에서만 따라감
+    const b0 = G.Stage.data.minX, b1 = G.Stage.data.maxX;
+    if (viewW >= b1 - b0) target = (b0 + b1 - viewW) / 2;
+    else target = Math.max(b0, Math.min(b1 - viewW, target));
+    // 길 전체보다 바깥(검은 빈 곳)은 보여주지 않음. 보스방처럼 화면보다 좁으면 가운데
+    if (viewW < CFG.ARENA_W) target = Math.max(0, Math.min(CFG.ARENA_W - viewW, target));
     camX = snap ? target : camX + (target - camX) * Math.min(1, CFG.camera.follow * dt);
     const targetY = Math.min(0, player.sy - 135);   // 머리가 화면 밖으로 나가려 하면 따라감
     camY = snap ? targetY : camY + (targetY - camY) * Math.min(1, CFG.camera.follow * 0.6 * dt);
@@ -79,6 +83,8 @@
   function drawBackground() {
     const H = CFG.VIEW_H, th = G.Boss.def.theme;
     // 배경 그림이 있으면 그것만 (그림 속 지평선을 전투장 안쪽 끝에 맞춤)
+    // 몹 구간(긴 길): 배경 그림을 이어 붙여 천천히 흘려보냄
+    if (!G.Floor.isBoss() && G.Render.backgroundScroll(ctx, th.bg, viewW, H, camX, th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0], 0.3)) return;
     if (G.Render.background(ctx, th.bg, viewW, H, camX, CFG.ARENA_W, th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0])) return;
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, th.sky[0]);

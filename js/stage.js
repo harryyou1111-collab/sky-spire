@@ -18,12 +18,24 @@ G.Stage = (function () {
   const STEP_UP = 6;                // 이 높이 이하 턱은 그냥 걸어서 올라감
   const LAND_MARGIN = 14;           // 윗면 가장자리에 걸쳐도 올라선 것으로 봐줌 (대충 맞아도 올라가게)
 
+  // 보스방 기본 배치 (층마다 floors.js에서 바꿀 수 있음)
+  const BOSS_PILLARS = [
+    { x: 130, z: 70, rx: 36, rz: 18, h: 44 },    // 왼쪽 낮은 기둥
+    { x: 790, z: 40, rx: 40, rz: 20, h: 90 },    // 오른쪽 높은 기둥
+  ];
   const stage = {
-    pillars: [
-      { x: 130, z: 70, rx: 36, rz: 18, h: 44 },    // 왼쪽 낮은 기둥
-      { x: 790, z: 40, rx: 40, rz: 20, h: 90 },    // 오른쪽 높은 기둥
-    ],
+    pillars: BOSS_PILLARS.slice(),
+    minX: 0, maxX: CFG.ARENA_W,     // 지금 움직일 수 있는 범위 (몹 구간에서 구역을 잠글 때 좁아짐)
   };
+
+  // 전투 공간 바꾸기: 너비와 기둥 배치. 몹 구간은 길게, 보스방은 한 화면
+  function setLayout(width, pillars) {
+    CFG.ARENA_W = width;
+    stage.pillars = (pillars || BOSS_PILLARS).map(p => Object.assign({}, p));
+    stage.minX = 0; stage.maxX = width;
+  }
+  // 움직일 수 있는 범위 (구역 잠금)
+  function setBounds(a, b) { stage.minX = a; stage.maxX = b; }
 
   // 깊이 z에서 바닥(h=0)의 화면 y
   function floorY(z) { return NEAR_Y - (DEPTH - z); }
@@ -59,7 +71,7 @@ G.Stage = (function () {
       const d = Math.hypot(dx, dz);
       if (d < 1 && d > 0) { nx = p.x + dx / d * ex; nz = p.z + dz / d * ez; }
     }
-    c.x = Math.max(hw, Math.min(CFG.ARENA_W - hw, nx));
+    c.x = Math.max(stage.minX + hw, Math.min(stage.maxX - hw, nx));
     c.z = Math.max(0, Math.min(DEPTH, nz));
 
     // 높이
@@ -210,5 +222,5 @@ G.Stage = (function () {
     });
   }
 
-  return { data: stage, DEPTH, floorY, screenY, support, move, drawFloor, drawables };
+  return { data: stage, DEPTH, floorY, screenY, support, move, drawFloor, drawables, setLayout, setBounds };
 })();

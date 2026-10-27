@@ -79,6 +79,28 @@ G.Render = (function () {
     return true;
   }
 
+  // 긴 길(몹 구간)용 배경: 배경 그림을 좌우로 이어 붙여(한 장씩 뒤집어서 이음매를 숨김) 천천히 흘려 보냄
+  //   speed: 카메라가 움직일 때 배경이 따라 움직이는 비율 (작을수록 멀리 있는 느낌)
+  function backgroundScroll(ctx, src, viewW, viewH, camX, horizon, horizonY, edge, speed) {
+    const im = src && getImg(src);
+    if (!im) return false;
+    const iw = im.naturalWidth, ih = im.naturalHeight;
+    const k = Math.max(viewH / ih, horizonY / (horizon * ih)) * 1.02;
+    const w = iw * k, h = ih * k, y = Math.max(horizonY - horizon * h, 0);
+    ctx.fillStyle = edge || '#000';
+    ctx.fillRect(0, 0, viewW, viewH);
+    const off = -((camX * (speed || 0.3)) % (w * 2));
+    for (let i = -1; i < Math.ceil(viewW / w) + 2; i++) {
+      const x = off + i * w;
+      if (x > viewW || x + w < 0) continue;
+      ctx.save();
+      if (((i % 2) + 2) % 2) { ctx.translate(x + w, y); ctx.scale(-1, 1); ctx.drawImage(im, 0, 0, w, h); }
+      else ctx.drawImage(im, x, y, w, h);
+      ctx.restore();
+    }
+    return true;
+  }
+
   // 뼈 하나를 그 뼈의 좌표계로 옮겨서 draw(ctx, len)을 실행
   function inBone(ctx, j, draw) {
     ctx.save();
@@ -385,5 +407,5 @@ G.Render = (function () {
     ctx.restore();
   }
 
-  return { drawRig, shadow, drawJoints, background, getImg, missing };
+  return { drawRig, shadow, drawJoints, background, backgroundScroll, getImg, missing };
 })();

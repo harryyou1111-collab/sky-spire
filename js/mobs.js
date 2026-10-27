@@ -20,7 +20,7 @@ G.Mobs = (function () {
     const m = {
       type, d, x, z, h: d.float || 0, vx: 0, vz: 0, vh: 0,
       hp: Math.round(d.hp * power), maxHp: Math.round(d.hp * power),
-      state: 'spawn', t: 0, cd: R(0.3, 1.0), face: x < CFG.ARENA_W / 2 ? 1 : -1,
+      state: 'spawn', t: 0, cd: R(0.3, 1.0), face: G.player && x > G.player.x ? -1 : 1,
       flash: 0, kb: 0, kbx: 0, kbz: 0, seed: R(0, 100), aim: null,
       halfWidth: d.w / 2, halfDepth: 6, onGround: true,
     };
@@ -116,7 +116,7 @@ G.Mobs = (function () {
       m.vz = mvz * spd + m.kbz * m.kb;
       m.kb = Math.max(0, m.kb - 1400 * dt);
       if (d.float) {
-        m.x = Math.max(15, Math.min(CFG.ARENA_W - 15, m.x + m.vx * dt));
+        m.x = Math.max(G.Stage.data.minX + 15, Math.min(G.Stage.data.maxX - 15, m.x + m.vx * dt));
         m.z = Math.max(0, Math.min(CFG.DEPTH, m.z + m.vz * dt));
         m.h = d.float + Math.sin(m.t * 3 + m.seed) * 6;
       } else {
