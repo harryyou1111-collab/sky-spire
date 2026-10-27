@@ -2,16 +2,18 @@
 // mobs.js — 일반 몹: 등장, 추적, 공격 예고 → 공격 → 빈틈, 맞음, 죽음
 //
 // 몹 데이터는 floors.js (G.MobDefs). 여기는 움직임·판정·그리기
-// 그림은 지금 임시 도형 (3D 몹이 생기면 draw만 교체)
+// 그림: 3D 모델이 있는 몹은 G.Mob3D(tools/mob3d.src.js)가 그림, 없으면 임시 도형
 //
 // 상태 흐름: spawn(등장) → chase(다가감) → windup(예고) → attack(판정) → recover(빈틈) → chase …
 //            맞으면 hurt(잠깐 경직, 예고가 끊김), 체력이 다하면 dead(쓰러지며 사라짐)
+//            거한(heavy)은 예고·공격 중에 맞아도 끊기지 않음 (슈퍼아머)
 // =====================================================================
 G.Mobs = (function () {
   const S = () => G.Stage, CFG = G.CFG;
   const list = [];
   const arrows = [];
   let power = 1;
+  let animDt = 0;                 // 3D 동작을 진행할 시간 (update에서 쌓고 그릴 때 씀)
   const R = (a, b) => a + Math.random() * (b - a);
 
   // ---------- 만들기 ----------
@@ -21,7 +23,7 @@ G.Mobs = (function () {
       type, d, x, z, h: d.float || 0, vx: 0, vz: 0, vh: 0,
       hp: Math.round(d.hp * power), maxHp: Math.round(d.hp * power),
       state: 'spawn', t: 0, cd: R(0.3, 1.0), face: G.player && x > G.player.x ? -1 : 1,
-      flash: 0, kb: 0, kbx: 0, kbz: 0, seed: R(0, 100), aim: null,
+      flash: 0, kb: 0, kbx: 0, kbz: 0, seed: R(0, 100), aim: null, atkKind: 'swing',
       halfWidth: d.w / 2, halfDepth: 6, onGround: true,
     };
     m.target = G.Combat.addTarget({ x, z, h: m.h, w: d.w, height: d.height, active: true, mob: m,
@@ -46,7 +48,7 @@ G.Mobs = (function () {
     m.flash = 0.12;
     const px = G.player ? G.player.x : m.x, pz = G.player ? G.player.z : m.z;
     let dx = m.x - px, dz = m.z - pz; const l = Math.hypot(dx, dz) || 1;
-    m.kbx = dx / l; m.kbz = dz / l * 0.6; m.kb = dmg >= 15 ? 300 : 200;
+    m.kbx = dx / l; m.kbz = dz / l * 0.6; m.kb = (dmg >= 15 ? 300 : 200) * (m.d.kbMul ?? 1);
     if (m.hp <= 0) {
       m.state = 'dead'; m.t = 0; m.target.active = false;
       G.BFX.dust(m.x, m.z, 6, 1, '90, 80, 60');
@@ -54,12 +56,15 @@ G.Mobs = (function () {
       else G.BFX.leaves(m.x, m.z, 40, 6);
       return;
     }
+    // 슈퍼아머: 예고·공격 중엔 끊기지 않음 (번쩍이기만)
+    if (m.d.poise && (m.state === 'windup' || m.state === 'attack')) return;
     // 예고·공격 중이면 끊기고 잠깐 경직 (플레이어가 먼저 때리면 이김)
     m.state = 'hurt'; m.t = 0;
   }
 
   // ---------- 매 프레임 ----------
   function update(dt, p) {
+    animDt += dt;
     for (const m of list) {
       m.t += dt;
       m.flash = Math.max(0, m.flash - dt);
@@ -89,7 +94,7 @@ G.Mobs = (function () {
         if (d.kind === 'ranged') {   // 조준은 예고 앞부분 동안 따라감
           if (m.t < d.windup * 0.6) m.aim = { x: p.x, z: p.z };
         }
-        if (m.t >= d.windup) startAttack(m, p);
+        if (m.t >= d.windup) startAttack(m, p);   // (거한은 공격마다 예고 시간이 같음)
       } else if (m.state === 'attack') {
         if (d.kind === 'melee') {
           // 찌르기: 앞으로 내딛으며 창끝 앞쪽에 판정
@@ -100,6 +105,8 @@ G.Mobs = (function () {
             if (G.Combat.hurtPlayer(p, Math.round(d.dmg * power), m.x, m.z)) m.hitDone = true;
           }
           m.tip = tipX;
+        } else if (d.kind === 'heavy') {
+          heavyHit(m, p);
         }
         if (m.t >= d.active) { m.state = 'recover'; m.t = 0; }
       } else if (m.state === 'recover') {
@@ -149,12 +156,34 @@ G.Mobs = (function () {
     // 쓰러진 몹 정리
     for (let i = list.length - 1; i >= 0; i--) {
       const m = list[i];
-      if (m.state === 'dead' && m.t > 0.7) { G.Combat.removeTarget(m.target); list.splice(i, 1); }
+      if (m.state === 'dead' && m.t > deadTime(m)) { G.Combat.removeTarget(m.target); list.splice(i, 1); }
     }
+  }
+
+  // 쓰러진 뒤 사라질 때까지 (3D 몹은 쓰러지는 동작을 끝까지 보여줌)
+  const deadTime = m => (m.d.model && !m.exploded && G.Mob3D && G.Mob3D.has(m)) ? 1.9 : 0.7;
+
+  // 거한 공격 판정
+  //   swing(휘두르기): 앞쪽 넓은 범위,  smash(내려찍기): 앞쪽 원형 + 땅 흔들림
+  function heavyHit(m, p) {
+    const d = m.d, A = d.attacks[m.atkKind];
+    if (m.hitDone || p.dead || p.h > 60) return;
+    let hit = false;
+    if (m.atkKind === 'smash') {
+      const cx = m.x + m.face * A.reach;
+      hit = Math.hypot(p.x - cx, (p.z - m.z) * 1.5) < A.radius;
+    } else {
+      const fx = (p.x - m.x) * m.face;
+      hit = fx > -20 && fx < A.reach && Math.abs(p.z - m.z) < A.thick;
+    }
+    if (hit && G.Combat.hurtPlayer(p, Math.round(A.dmg * power), m.x, m.z)) m.hitDone = true;
   }
 
   function startWindup(m, p) {
     m.state = 'windup'; m.t = 0; m.hitDone = false;
+    if (m.d.kind === 'heavy') {   // 거한: 휘두르기와 내려찍기를 번갈아 (가끔 같은 걸 연속)
+      m.atkKind = Math.random() < 0.7 ? (m.atkKind === 'swing' ? 'smash' : 'swing') : m.atkKind;
+    }
     m.face = Math.sign(p.x - m.x) || m.face;
     m.aim = { x: p.x, z: p.z };
   }
@@ -162,6 +191,11 @@ G.Mobs = (function () {
   function startAttack(m, p) {
     const d = m.d;
     m.state = 'attack'; m.t = 0;
+    if (d.kind === 'heavy' && m.atkKind === 'smash') {   // 내려찍는 순간 땅이 울림
+      const cx = m.x + m.face * d.attacks.smash.reach;
+      G.FX.shake(6, 0.22);
+      G.BFX.dust(cx, m.z, 8, 1.1, '90, 80, 60'); G.BFX.debris(cx, m.z, 5, 0.8);
+    }
     if (d.kind === 'ranged') {
       const ax = m.aim.x - m.x, az = m.aim.z - m.z, l = Math.hypot(ax, az) || 1;
       arrows.push({ x: m.x + m.face * 20, z: m.z, h: d.arrowH, vx: ax / l * d.arrowSpeed, vz: az / l * d.arrowSpeed, life: 2.2, dmg: Math.round(d.dmg * power) });
@@ -178,14 +212,15 @@ G.Mobs = (function () {
   // ---------- 그리기 ----------
   function drawMob(ctx, m) {
     const d = m.d, F = S().floorY, y = F(m.z) - m.h;
-    const fade = m.state === 'dead' ? Math.max(0, 1 - m.t / 0.7) : m.state === 'spawn' ? Math.min(1, m.t / 0.4) : 1;
+    const dt = deadTime(m);
+    const fade = m.state === 'dead' ? Math.max(0, Math.min(1, (dt - m.t) / 0.5)) : m.state === 'spawn' ? Math.min(1, m.t / 0.4) : 1;
     if (fade <= 0) return;
     if (!d.float) G.Render.shadow(ctx, m.x, F(m.z), d.w * 0.7, 0.4 * fade);
     else G.Render.shadow(ctx, m.x, F(m.z), 14, 0.25 * fade);
     ctx.save();
     ctx.globalAlpha = fade;
     if (d.kind === 'bomber') drawWisp(ctx, m, y);
-    else drawSatyr(ctx, m, y);
+    else if (!(G.Mob3D && G.Mob3D.draw(ctx, m, m.x, y))) drawSatyr(ctx, m, y);
     ctx.restore();
     // 체력 막대 (맞은 적 있을 때만)
     if (m.hp < m.maxHp && m.state !== 'dead') {
@@ -295,6 +330,7 @@ G.Mobs = (function () {
   }
 
   function drawables() {
+    if (G.Mob3D && G.Mob3D.ready) { G.Mob3D.frame(list, Math.min(0.1, animDt)); animDt = 0; }
     return [...list.map(m => ({ key: m.z, draw: ctx => drawMob(ctx, m) })),
             ...arrows.map(a => ({ key: a.z, draw: ctx => drawArrow(ctx, a) }))];
   }

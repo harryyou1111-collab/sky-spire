@@ -19,7 +19,8 @@ G.Floors = {
       zones: [
         { x0: 0,    x1: 900,  mobs: [{ type: 'satyr_spear', n: 3 }] },
         { x0: 900,  x1: 1800, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 1 }, { type: 'wisp', n: 1 }] },
-        { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 }] },
+        { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 },
+                                     { type: 'satyr_brute', n: 1 }] },   // 거한: 원래 5층부터 나올 몹. 지금은 확인용으로 1층에 1마리 (빼려면 이 줄 삭제)
       ],
       end: 3300,
       bg: 'assets/bosses/pan/path_bg.jpg',   // 길 배경 (긴 그림 한 장: 왼쪽=길 시작, 오른쪽=보스방 앞. 오른쪽 끝은 보스방 배경과 같은 그림)
@@ -45,6 +46,7 @@ G.Floors = {
 //   windup  : 공격 예고 시간 (몸이 빛나거나 무기를 당김 → 이때 피하면 됨)
 //   active  : 공격 판정 시간,  recover: 공격 뒤 빈틈 (때릴 기회),  cooldown: 다음 공격까지
 //   dmg     : 플레이어가 받는 피해
+//   model   : 3D 모델 (assets/mobs/모델.glb),  weapon: 손에 드는 무기,  h3d: 3D 모델 키(게임 단위)
 // ---------------------------------------------------------------------
 G.MobDefs = {
   // 사티로스 창병: 다가와서 창으로 앞으로 찌름 (찌르며 앞으로 내딛음)
@@ -54,6 +56,7 @@ G.MobDefs = {
     range: 55, windup: 0.5, active: 0.15, recover: 0.55, cooldown: 1.1,
     dmg: 10, lunge: 260, reach: 75, thick: 26,
     color: '#7a5a3c', cloth: '#5c3b2a',
+    model: 'satyr', weapon: 'spear', h3d: 104,
   },
   // 사티로스 궁수: 거리를 두고 활을 쏨. 화살은 똑바로 날아감 → 옆으로 비키거나 점프·구르기
   satyr_archer: {
@@ -62,6 +65,21 @@ G.MobDefs = {
     range: 260, windup: 0.75, active: 0.1, recover: 0.4, cooldown: 1.7,
     dmg: 8, arrowSpeed: 430, arrowH: 55,
     color: '#7a5a3c', cloth: '#3f5a2c',
+    model: 'satyr', weapon: 'bow', h3d: 100,
+  },
+  // 사티로스 거한: 느리고 단단함. 예고·공격 중엔 맞아도 멈추지 않음(슈퍼아머) → 예고를 보고 피한 뒤 빈틈에 때리기
+  //   휘두르기(swing)와 내려찍기(smash)를 번갈아 씀
+  satyr_brute: {
+    name: '사티로스 거한', kind: 'heavy',
+    hp: 130, speed: 55, w: 46, height: 140,
+    range: 80, windup: 0.9, active: 0.2, recover: 1.0, cooldown: 1.6,
+    poise: true, kbMul: 0.25,
+    attacks: {
+      swing: { dmg: 16, reach: 105, thick: 40 },
+      smash: { dmg: 22, reach: 70, radius: 55 },
+    },
+    color: '#8a7a6a', cloth: '#6a1e1e',
+    model: 'brute', weapon: 'club', h3d: 140,
   },
   // 도깨비불: 떠다니다 가까이 오면 부풀어 오르고 터짐 (터지면 사라짐)
   wisp: {
