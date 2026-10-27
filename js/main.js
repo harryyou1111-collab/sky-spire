@@ -16,18 +16,46 @@
   G.player = player;
   G.Floor.start(1, player);       // 1층부터: 몹 구간 → 보스방 (floors.js)
 
-  // ---------- 게임 흐름: 승리 / 패배 / 재도전, 플레이어 체력 표시 ----------
+  // ---------- 게임 흐름: 로비 ↔ 층 도전, 승리 / 패배 / 재도전, 일시정지, 플레이어 체력 표시 ----------
+  //   mode: 'lobby'(로비, 게임 멈춤) / 'play'(층 진행 중) / 'pause'(일시정지)
   const result = document.getElementById('result');
+  const pauseEl = document.getElementById('pause');
   const hpFill = document.querySelector('#player-hp .fill');
   const potionCount = document.getElementById('potion-count');
   const potionBtn = document.querySelector('[data-act="heal"]');
+  let runTime = 0;          // 이번 층 도전 시간 (클리어 기록용)
   G.Game = {
-    win() {
-      G.Floor.cleared();
-      show(`${G.Floor.state.n}층 클리어`, `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · 다음 층은 준비 중`);
-      result.querySelector('button').textContent = '처음부터';
+    mode: 'lobby',
+    // 층 도전 시작 (로비의 "탑 오르기", 결과 화면의 "다음 층")
+    play(n) {
+      Object.assign(player, G.Player.create(START.x, START.z));
+      G.Floor.start(n, player);
+      G.Game.mode = 'play'; runTime = 0;
+      G.Lobby.hide();
+      result.classList.add('hidden'); pauseEl.classList.add('hidden');
+      updateCamera(0, true);
+      G.Game.updateHUD();
     },
-    lose() { setTimeout(() => show('패배', '쓰러졌습니다'), 900); },
+    toLobby() {
+      G.Save.save();
+      G.Game.mode = 'lobby';
+      result.classList.add('hidden'); pauseEl.classList.add('hidden');
+      G.Lobby.show();
+    },
+    win() {
+      const n = G.Floor.state.n;
+      G.Floor.cleared();
+      const first = G.Save.clearFloor(n, runTime);
+      const next = G.Floors[n + 1];
+      const rec = `기록 ${Math.floor(runTime / 60)}:${String(Math.floor(runTime % 60)).padStart(2, '0')}${first ? '' : ''}`;
+      show(`${n}층 클리어`, `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · ${rec}${next ? '' : ' · 다음 층은 준비 중'}`,
+        next ? ['다음 층 ▶', () => G.Game.play(n + 1)] : ['로비로', () => G.Game.toLobby()],
+        next ? ['로비로', () => G.Game.toLobby()] : null);
+    },
+    lose() {
+      G.Save.addDeath();
+      setTimeout(() => show('패배', '쓰러졌습니다', ['다시 도전', () => G.Game.restart()], ['로비로', () => G.Game.toLobby()]), 900);
+    },
     updateHUD() {
       hpFill.style.width = (player.hp / CFG.player.maxHp * 100) + '%';
       potionCount.textContent = player.potions;
@@ -35,20 +63,32 @@
     },
     // 다시 도전: 몹 구간에서 죽었으면 몹 구간부터, 보스전에서 죽었으면 보스전부터 (체력·포션은 가득)
     restart() {
-      const cleared = G.Floor.state.phase === 'clear';
       Object.assign(player, G.Player.create(START.x, START.z));
-      if (cleared) G.Floor.start(G.Floor.state.n, player); else G.Floor.retry(player);
+      G.Floor.retry(player);
       result.classList.add('hidden');
-      result.querySelector('button').textContent = '다시 도전';
       G.Game.updateHUD();
     },
+    pause() {
+      if (G.Game.mode !== 'play' || !result.classList.contains('hidden')) return;
+      G.Game.mode = 'pause'; pauseEl.classList.remove('hidden');
+    },
+    resume() { if (G.Game.mode === 'pause') { G.Game.mode = 'play'; pauseEl.classList.add('hidden'); last = performance.now(); } },
   };
-  function show(title, sub) {
+  // 결과 화면: 버튼 두 개 [글자, 할 일] (두 번째는 없으면 숨김)
+  const rb = [result.querySelector('.b1'), result.querySelector('.b2')], rAct = [null, null];
+  function show(title, sub, b1, b2) {
     result.querySelector('.title').textContent = title;
     result.querySelector('.sub').textContent = sub;
+    [b1, b2].forEach((b, i) => { rb[i].style.display = b ? '' : 'none'; if (b) { rb[i].textContent = b[0]; rAct[i] = b[1]; } });
     result.classList.remove('hidden');
   }
-  result.querySelector('button').addEventListener('click', () => G.Game.restart());
+  rb.forEach((b, i) => b.addEventListener('click', () => rAct[i] && rAct[i]()));
+  document.getElementById('btn-pause').addEventListener('click', () => G.Game.pause());
+  pauseEl.addEventListener('click', e => {
+    const a = e.target.dataset && e.target.dataset.act;
+    if (a === 'resume') G.Game.resume(); else if (a === 'lobby') G.Game.toLobby();
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) G.Game.pause(); });   // 다른 앱으로 가면 자동 일시정지
   G.Game.updateHUD();
 
   // ---------- 화면 크기 맞추기 ----------
@@ -173,6 +213,14 @@
     last = now;
     if (dt > 0.1) dt = 0.1; // 탭 전환 후 돌아왔을 때 순간이동 방지
     fps += (1 / Math.max(dt, 0.001) - fps) * 0.05;
+    // 로비·일시정지 중에는 게임을 멈춤 (로비는 주인공 미리보기만)
+    if (G.Game.mode !== 'play') {
+      if (G.Game.mode === 'lobby') G.Lobby.frame(dt);
+      requestAnimationFrame(frame);
+      return;
+    }
+    if (G.Floor.state.phase !== 'clear' && !player.dead) runTime += dt;
+    G.Save.addPlayTime(dt);
 
     // 타격 정지 중에는 캐릭터가 멈춤 (입력은 기억해 둠)
     const fx = G.FX.state;
@@ -230,6 +278,7 @@
   const start = document.getElementById('start');
   start.addEventListener('pointerdown', () => {
     start.classList.add('hidden');
+    G.Lobby.show();
     const el = document.documentElement;
     try {
       const req = el.requestFullscreen || el.webkitRequestFullscreen;

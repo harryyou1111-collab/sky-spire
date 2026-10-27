@@ -37,6 +37,13 @@ html, body {
   border-radius: 6px; padding: 6px 9px;
 }
 #btn-debug.on { color: #7fffb0; border-color: #7fffb0; }
+#btn-debug { margin-left: auto; }
+#btn-pause {
+  pointer-events: auto; margin-left: 8px;
+  font: 800 13px system-ui, sans-serif; color: #d9c38a;
+  background: rgba(20, 18, 28, .6); border: 1px solid rgba(217, 195, 138, .45);
+  border-radius: 6px; width: 34px; height: 28px;
+}
 
 /* ---------- 보스 체력 ---------- */
 #boss-bar {
@@ -155,11 +162,132 @@ body.cine #hud, body.cine #controls, body.cine #boss-bar, body.cine #mob-count {
 #result.hidden { display: none; }
 #result .title { font-size: 40px; font-weight: 800; letter-spacing: 10px; color: #f2d9a6; text-shadow: 0 2px 12px #000; }
 #result .sub { font-size: 15px; color: #cfc6dd; }
-#result button {
+#result button, #pause button {
   margin-top: 14px; padding: 12px 30px; border-radius: 24px;
   font: 700 16px system-ui, sans-serif; color: #1a1420;
-  background: #d9c38a; border: none;
+  background: #d9c38a; border: 1px solid #d9c38a;
 }
+#result .btns, #pause .btns { display: flex; gap: 12px; }
+#result button.ghost, #pause button.ghost { background: rgba(0, 0, 0, .35); color: #d9c38a; }
+
+/* ---------- 일시정지 ---------- */
+#pause {
+  position: fixed; inset: 0; z-index: 15;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(8, 6, 12, .7);
+}
+#pause.hidden { display: none; }
+#pause .title { font-size: 30px; font-weight: 800; letter-spacing: 10px; color: #f2d9a6; }
+
+/* ---------- 로비 (탑 입구) ---------- */
+body.in-lobby #hud, body.in-lobby #controls, body.in-lobby #boss-bar, body.in-lobby #mob-count { display: none; }
+#lobby { position: fixed; inset: 0; z-index: 9; background: #070809; overflow: hidden; }
+#lobby.hidden { display: none; }
+.lb-bg {
+  position: absolute; inset: 0;
+  background: url(../assets/world/lobby.jpg?v=35) center 78% / cover no-repeat;
+  filter: brightness(.88) saturate(1.05);
+}
+#lobby::after {          /* 글자가 잘 보이게: 위쪽 살짝, 아래쪽 바닥은 어둡게 */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(rgba(0,0,0,.28), transparent 22%),
+    linear-gradient(transparent 58%, rgba(6,8,10,.78) 100%),
+    radial-gradient(ellipse 80% 90% at 40% 45%, transparent 55%, rgba(0,0,0,.35) 100%);
+}
+#lobby > * { position: absolute; z-index: 1; }
+#lobby > .lb-bg { z-index: 0; }
+.lb-top {
+  top: max(12px, env(safe-area-inset-top)); left: max(20px, env(safe-area-inset-left)); right: max(20px, env(safe-area-inset-right));
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.lb-title { font: 800 24px serif; letter-spacing: 10px; color: #fff3d6; text-shadow: 0 2px 10px rgba(0,0,0,.7); }
+.lb-title small { display: block; font: 600 10px system-ui, sans-serif; letter-spacing: 5px; color: #e8e4f0; margin-top: 2px; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+.lb-icon {
+  width: 38px; height: 38px; border-radius: 50%; font-size: 18px; color: #d9c38a;
+  background: rgba(10, 10, 12, .55); border: 1px solid rgba(217, 195, 138, .35);
+}
+.lb-left { left: 4%; top: 70px; bottom: 0; width: 40%; display: flex; flex-direction: column; align-items: center; }
+.lb-left::before {       /* 주인공 발밑 그림자 (풀밭 위에 서 있게) */
+  content: ''; position: absolute; left: 50%; bottom: 3%; width: 46%; height: 26px; transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, .45), transparent 70%);
+}
+#lb-hero { flex: 1; width: 100%; min-height: 0; touch-action: none; position: relative; }
+.lb-hero-info {     /* 제목 아래: 최고층, 능력치 */
+  top: calc(max(12px, env(safe-area-inset-top)) + 58px); left: max(20px, env(safe-area-inset-left));
+}
+#lb-best { font: 700 13px system-ui, sans-serif; letter-spacing: 3px; color: #f0d79e; text-shadow: 0 1px 4px #000; }
+#lb-stat { margin-top: 4px; display: flex; gap: 14px; font-size: 12px; color: #c9c3d4; text-shadow: 0 1px 4px #000; }
+#lb-stat b { color: #f1ead8; margin-left: 3px; }
+.lb-climb {
+  right: max(5%, env(safe-area-inset-right)); top: 50%; transform: translateY(-60%);
+  width: min(40vw, 330px); padding: 16px 18px 14px; text-align: center;
+  background: linear-gradient(rgba(16, 17, 15, .82), rgba(9, 9, 11, .9));
+  border: 1px solid rgba(230, 205, 146, .32); border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 240, 200, .08);
+}
+.lb-floor { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lb-arrow {
+  width: 36px; height: 36px; flex: none; border-radius: 50%; font-size: 13px; color: #e6cd92;
+  background: transparent; border: 1px solid rgba(230, 205, 146, .4);
+}
+.lb-arrow.off { opacity: .18; pointer-events: none; }
+.lb-floor-info b {
+  display: block; font: 900 42px/1 serif; letter-spacing: 2px;
+  background: linear-gradient(#fff3d2, #e3c27c 55%, #a8783a); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lb-floor-info span { display: block; margin-top: 6px; font-size: 12px; letter-spacing: 1px; color: #cfc6b0; }
+#lb-go {
+  width: 100%; margin-top: 14px; padding: 13px 0; border-radius: 10px; border: none;
+  font: 800 17px system-ui, sans-serif; letter-spacing: 6px; color: #1b1308;
+  background: linear-gradient(#f3da9e, #c0904a);
+  box-shadow: 0 0 18px rgba(240, 200, 120, .3);
+  animation: lbglow 2.4s ease-in-out infinite;
+}
+#lb-go:active { transform: scale(.97); }
+@keyframes lbglow { 50% { box-shadow: 0 0 28px rgba(240, 200, 120, .55); } }
+#lb-note { margin-top: 9px; font-size: 11.5px; color: #9e98ab; }
+.lb-tabs {
+  bottom: max(12px, env(safe-area-inset-bottom)); right: max(5%, env(safe-area-inset-right));
+  width: min(40vw, 330px); display: flex; gap: 8px;
+}
+.lb-tabs button {
+  flex: 1; height: 52px; border-radius: 10px; font: 700 12px system-ui, sans-serif; color: #e8e2d4;
+  background: rgba(14, 14, 16, .72); border: 1px solid rgba(230, 205, 146, .22);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.lb-tabs button i { font-style: normal; font-size: 17px; color: #e6cd92; }
+.lb-tabs button.locked { opacity: .45; }
+#lb-panel { inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .58); }
+#lb-panel.hidden { display: none; }
+.lb-panel-box {
+  width: min(560px, 86vw); max-height: 84vh; overflow: auto; padding: 14px 18px 16px;
+  background: rgba(17, 17, 19, .97); border: 1px solid rgba(230, 205, 146, .3); border-radius: 14px;
+  touch-action: pan-y;
+}
+.lb-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.lb-panel-head b { font: 800 17px system-ui, sans-serif; letter-spacing: 6px; color: #e6cd92; }
+.lb-close { width: 32px; height: 32px; border-radius: 50%; color: #cfc6b0; background: transparent; border: 1px solid rgba(255,255,255,.18); }
+.lb-slots { display: flex; gap: 12px; }
+.lb-slot {
+  flex: 1; padding: 14px 10px; border-radius: 10px; text-align: center;
+  border: 1px dashed rgba(255, 255, 255, .2); color: #8f8a9c;
+  display: flex; flex-direction: column; gap: 4px; align-items: center;
+}
+.lb-slot.on { border: 1px solid rgba(230, 205, 146, .55); color: #f1ead8; background: rgba(230, 205, 146, .06); }
+.lb-slot i { font-style: normal; font-size: 22px; color: #e6cd92; }
+.lb-slot b { font-size: 11px; letter-spacing: 3px; color: #a9a2b6; }
+.lb-slot span { font-size: 13.5px; }
+.lb-hint { margin-top: 12px; text-align: center; font-size: 12.5px; color: #9d97ab; line-height: 1.5; }
+.lb-hint.big { font-size: 16px; padding: 18px 0; }
+.lb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lb-table th { font-weight: 600; font-size: 11px; color: #8f8a9c; text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.lb-table td { padding: 7px 6px; color: #8f8a9c; border-bottom: 1px solid rgba(255,255,255,.05); }
+.lb-table tr.done td { color: #f1ead8; }
+.lb-table tr.done td:nth-child(3) { color: #8fe08a; }
+.lb-btn { display: block; margin: 6px auto 0; padding: 11px 22px; border-radius: 10px; font: 700 14px system-ui, sans-serif; }
+.lb-btn { color: #e6cd92; background: transparent; border: 1px solid rgba(230, 205, 146, .45); }
+.lb-btn.danger { color: #ff8a7a; background: transparent; border: 1px solid rgba(255, 120, 100, .55); }
 
 /* ---------- 세로 화면 안내 ---------- */
 #rotate {
