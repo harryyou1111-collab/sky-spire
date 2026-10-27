@@ -46,6 +46,11 @@
       const n = G.Floor.state.n;
       G.Floor.cleared();
       const first = G.Save.clearFloor(n, runTime);
+      // 보스 보상: 처음 얻는 장비면 결과 화면에 보여 줌
+      const rw = G.Boss.def.reward, got = rw && rw.equip ? G.Equip.grant(rw.equip) : null;
+      const rwEl = result.querySelector('.reward');
+      rwEl.classList.toggle('hidden', !got);
+      if (got) { rwEl.querySelector('img').src = got.icon + '?v=' + G.VERSION; rwEl.querySelector('b').textContent = got.name; }
       const next = G.Floors[n + 1];
       const rec = `기록 ${Math.floor(runTime / 60)}:${String(Math.floor(runTime % 60)).padStart(2, '0')}${first ? '' : ''}`;
       show(`${n}층 클리어`, `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · ${rec}${next ? '' : ' · 다음 층은 준비 중'}`,
@@ -54,6 +59,7 @@
     },
     lose() {
       G.Save.addDeath();
+      result.querySelector('.reward').classList.add('hidden');
       setTimeout(() => show('패배', '쓰러졌습니다', ['다시 도전', () => G.Game.restart()], ['로비로', () => G.Game.toLobby()]), 900);
     },
     updateHUD() {
@@ -90,6 +96,7 @@
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) G.Game.pause(); });   // 다른 앱으로 가면 자동 일시정지
   G.Game.updateHUD();
+  G.Equip.apply();      // 저장된 장비대로 손에 든 칼
 
   // ---------- 화면 크기 맞추기 ----------
   function resize() {

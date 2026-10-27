@@ -85,49 +85,69 @@ function toonify(root) {
   outlines.forEach(([p, c]) => p.add(c));
 }
 
-// 칼: sword.png의 윤곽을 따서 얇은 두께를 준 판 모양 (그림이 그대로 입혀짐)
-//   SWORD.len: 칼 길이(미터), grip: 그림 속 손잡이 위치(가로 픽셀, 세로 픽셀)
+// 칼: 칼 그림의 윤곽을 따서 얇은 두께를 준 판 모양 (그림이 그대로 입혀짐)
+//   len: 칼 길이(미터), grip: 그림 속 손잡이 위치(가로 픽셀, 세로 픽셀)
 //   rot/pos: 손 뼈 기준 회전(도)·위치 — 손에 쥔 모양이 어색하면 이 숫자만 조정
+//   그림은 칼끝이 왼쪽, 손잡이가 오른쪽. 윤곽 json: { w, h, pts: 바깥 윤곽, holes: 뚫린 곳(있으면) }
+// 장비를 바꾸면 H.setSword(장비 정보)로 손에 든 칼이 바뀜 (items.js). 없으면 기본 검
 const SWORD = { img: 'assets/hero/sword.png', shape: 'assets/hero/sword.json', len: 1.25, grip: [1650, 136],
                 rot: [0, 0, 180], pos: [0, 0.07, 0.03] };
 H.SWORD = SWORD;
-let swordGroup = null;
-async function attachSword(root) {
-  let hand = null;
-  root.traverse(o => { if (o.isBone && /RightHand$/i.test(o.name)) hand = o; });
-  if (!hand) return;
+let swordGroup = null, swordHolder = null, handBone = null, swordKey = null, swordDef = SWORD;
+const swordCache = new Map();
+async function buildSword(def) {
+  if (swordCache.has(def.img)) return swordCache.get(def.img).clone();
   const v = '?v=' + (G.VERSION || 0);
-  const data = await (await fetch(SWORD.shape + v)).json();
-  const tex = await new THREE.TextureLoader().loadAsync(SWORD.img + v);
+  const data = await (await fetch(def.shape + v)).json();
+  const tex = await new THREE.TextureLoader().loadAsync(def.img + v);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const k = SWORD.len / data.w;                       // 픽셀 → 미터
-  const shape = new THREE.Shape(data.pts.map(([x, y]) => new THREE.Vector2((x - SWORD.grip[0]) * k, (SWORD.grip[1] - y) * k)));
+  const k = def.len / data.w;                         // 픽셀 → 미터
+  const P = ([x, y]) => new THREE.Vector2((x - def.grip[0]) * k, (def.grip[1] - y) * k);
+  const shape = new THREE.Shape(data.pts.map(P));
+  for (const h of data.holes || []) shape.holes.push(new THREE.Path(h.map(P)));
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.012, bevelEnabled: false });
   geo.translate(0, 0, -0.006);
   // 그림 좌표로 UV 다시 매기기 (앞뒤 모두 그림이 보이게)
   const pos = geo.attributes.position, uv = geo.attributes.uv;
   for (let i = 0; i < pos.count; i++) {
-    uv.setXY(i, (pos.getX(i) / k + SWORD.grip[0]) / data.w, 1 - (SWORD.grip[1] - pos.getY(i) / k) / data.h);
+    uv.setXY(i, (pos.getX(i) / k + def.grip[0]) / data.w, 1 - (def.grip[1] - pos.getY(i) / k) / data.h);
   }
   const grad = new THREE.DataTexture(new Uint8Array([120, 120, 120, 255, 200, 200, 200, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
   grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
-  const mesh = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: tex, gradientMap: grad, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: tex, gradientMap: grad, side: THREE.DoubleSide, alphaTest: 0.5 }));
   const line = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x0b0d0a, side: THREE.BackSide }));
   line.scale.setScalar(1.03);
   const g = new THREE.Group();
   g.add(mesh, line);
-  const inner = new THREE.Group(); inner.add(g);
-  swordGroup = inner;
-  placeSword();
-  const s = 1 / hand.getWorldScale(new THREE.Vector3()).x;   // 뼈 크기 보정 (모델 단위와 상관없이 미터로)
-  const holder = new THREE.Group(); holder.scale.setScalar(s); holder.add(inner);
-  hand.add(holder);
+  swordCache.set(def.img, g);
+  return g.clone();
 }
+// 손에 든 칼 바꾸기 (def = 장비의 칼 정보, 없으면 기본 검)
+async function setSword(def) {
+  H.pendingSword = def || null;
+  const d = Object.assign({}, SWORD, def || {});
+  if (!handBone || swordKey === d.img) return;
+  swordKey = d.img;
+  const g = await buildSword(d);
+  if (swordKey !== d.img) return;                    // 그사이 또 바뀌었으면 버림
+  if (swordHolder) handBone.remove(swordHolder);
+  const inner = new THREE.Group(); inner.add(g);
+  swordGroup = inner; swordDef = d;
+  placeSword();
+  const s = 1 / handBone.getWorldScale(new THREE.Vector3()).x;   // 뼈 크기 보정 (모델 단위와 상관없이 미터로)
+  swordHolder = new THREE.Group(); swordHolder.scale.setScalar(s); swordHolder.add(inner);
+  handBone.add(swordHolder);
+}
+function attachSword(root) {
+  root.traverse(o => { if (o.isBone && /RightHand$/i.test(o.name)) handBone = o; });
+  if (handBone) setSword(H.pendingSword);
+}
+H.setSword = setSword;
 function placeSword() {
   if (!swordGroup) return;
-  const r = SWORD.rot.map(THREE.MathUtils.degToRad);
+  const r = swordDef.rot.map(THREE.MathUtils.degToRad);
   swordGroup.rotation.set(r[0], r[1], r[2]);
-  swordGroup.position.set(...SWORD.pos);
+  swordGroup.position.set(...swordDef.pos);
 }
 H.placeSword = placeSword;
 

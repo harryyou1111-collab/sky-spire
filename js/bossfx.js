@@ -50,6 +50,16 @@ G.BFX = (function () {
     parts.push({ kind: 'flash', x, z, h, r, age: 0, life: life || 0.18, color: color || '255, 250, 220' });
   }
   function screenFlash(color, life) { screen = { color, age: 0, life }; }
+  // 가시덩굴 무더기 (판의 뿔검 특수 효과): (x, z) 주변 원 모양으로 짧게 솟았다 들어감
+  function thorns(x, z, r) {
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + R(-0.3, 0.3), d = r * R(0.25, 0.95);
+      parts.push({ kind: 'thorn', x: x + Math.cos(a) * d, z: z + Math.sin(a) * d * 0.45, h: 0, age: -R(0, 0.08), life: 0.6,
+                   H: R(34, 62), lean: Math.cos(a) * R(6, 16), seed: Math.floor(R(1, 9999)) });
+    }
+    flash(x, z, 6, r * 1.1, '150, 255, 120', 0.25);
+    leaves(x, z, 20, 8);
+  }
 
   // ---------- 매 프레임 ----------
   function update(dt) {
@@ -119,6 +129,10 @@ G.BFX = (function () {
         ctx.fillStyle = `rgba(${p.color}, ${a})`;
         ctx.beginPath(); ctx.arc(p.x, y, p.size, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
+      } else if (p.kind === 'thorn') {
+        // 빠르게 솟고(0.15초) 잠깐 머문 뒤 들어감
+        const k = Math.min(1, p.age / 0.15) * Math.min(1, (p.life - p.age) / 0.25);
+        vine(ctx, p.x, F(p.z), p.H * k, p.lean, p.seed, 0, 4);
       } else if (p.kind === 'flash') {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         const r = p.r * (0.6 + 0.6 * u), a = (1 - u);
@@ -188,5 +202,5 @@ G.BFX = (function () {
 
   function clear() { parts.length = 0; screen = null; }
 
-  return { debris, dust, leaves, motes, flash, screenFlash, update, drawTop, vine, clear };
+  return { debris, dust, leaves, motes, flash, screenFlash, thorns, update, drawTop, vine, clear };
 })();

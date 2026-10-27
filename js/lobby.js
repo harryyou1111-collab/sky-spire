@@ -55,18 +55,29 @@ G.Lobby = (function () {
   // ---------- 창 (장비·스킬·강화·기록·설정) ----------
   const PANELS = {
     equip() {
-      const S = G.Save.data, C = G.CFG;
+      const S = G.Save.data, C = G.CFG, E = G.Equip, w = E.item('weapon'), c = E.item('charm');
+      const bonus = E.atkBonus(), base = C.attack.side1.dmg;
+      const slot = (it, icon, label, empty) => `<div class="lb-slot${it ? ' on' : ''}">
+          ${it ? `<img src="${it.icon}?v=${G.VERSION}" alt="">` : `<i>${icon}</i>`}<b>${label}</b><span>${it ? it.name : empty}</span></div>`;
+      const cards = S.owned.equip.map(id => {
+        const it = G.Items[id]; if (!it) return '';
+        const on = S.equip[it.slot] === id;
+        return `<div class="lb-item${on ? ' on' : ''}">
+          <img src="${it.icon}?v=${G.VERSION}" alt="">
+          <div class="lb-item-info"><b>${it.name}</b><small>${it.slot === 'weapon' ? '무기' : '장신구'} · ${it.from}</small>
+            <p>${it.atk ? `<em>공격 +${it.atk}</em>` : ''}${it.special ? `<em class="sp">${it.special.text}</em>` : ''}</p>
+            <p class="desc">${it.desc}</p></div>
+          <button type="button" class="lb-btn${on ? '' : ' gold'}" data-equip="${id}">${on ? '해제' : '장착'}</button>
+        </div>`;
+      }).join('');
       return ['장비', `
         <div class="lb-stats">
           <div><span>체력</span><b>${C.player.maxHp}</b></div>
-          <div><span>공격</span><b>${C.attack.side1.dmg}</b></div>
+          <div><span>공격</span><b>${base + bonus}</b>${bonus ? `<small> (+${bonus})</small>` : ''}</div>
           <div><span>포션</span><b>${C.potion.count}</b></div>
         </div>
-        <div class="lb-slots">
-          <div class="lb-slot on"><i>⚔</i><b>무기</b><span>${S.equip.weapon || '기본 검'}</span></div>
-          <div class="lb-slot"><i>◈</i><b>장신구</b><span>${S.equip.charm || '비어 있음'}</span></div>
-        </div>
-        <p class="lb-hint">${S.owned.equip.length ? '' : '가진 장비가 없어요. 장비를 주는 보스를 쓰러뜨리면 얻을 수 있어요.'}</p>`];
+        <div class="lb-slots">${slot(w, '⚔', '무기', '기본 검')}${slot(c, '◈', '장신구', '비어 있음')}</div>
+        ${cards ? `<div class="lb-items">${cards}</div>` : '<p class="lb-hint">가진 장비가 없어요. 장비를 주는 보스를 쓰러뜨리면 얻을 수 있어요.</p>'}`];
     },
     skills() {
       const S = G.Save.data;
@@ -97,6 +108,7 @@ G.Lobby = (function () {
     const [title, html] = PANELS[key]();
     panelTitle.textContent = title; panelBody.innerHTML = html;
     panel.classList.remove('hidden');
+    panelBody.querySelectorAll('[data-equip]').forEach(b => b.addEventListener('click', () => { G.Equip.toggle(b.dataset.equip); openPanel(key); }));
     const op = $('#lb-opening');
     if (op) op.addEventListener('click', () => { closePanel(); G.Descent.play(null); });
     const r = $('#lb-reset');

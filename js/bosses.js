@@ -15,6 +15,7 @@ G.BossDefs = {
   pan: {
     floor: 1,
     name: '판',
+    reward: { equip: 'pan_hornblade' },   // 처음 쓰러뜨리면 받는 보상 (items.js). 스킬을 주는 보스는 { skill: 'id' }
     title: '숲과 공포의 신',
     hp: 320,
 

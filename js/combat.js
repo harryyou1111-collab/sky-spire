@@ -68,7 +68,8 @@ G.Combat = (function () {
   // 플레이어 공격이 대상에 맞았는지 검사. 맞으면 true
   function playerAttack(p) {
     const a = p.atk, r = attackRange(p);
-    let hitAny = false;
+    const dmg = a.def.dmg + G.Equip.atkBonus();          // 장비 공격력 더하기 (items.js)
+    let hitAny = false, firstHit = null;
     for (const t of targets) {
       if (t.active === false) continue;
       if (a.hit.has(t)) continue;                       // 한 번 휘두를 때 같은 대상은 한 번만
@@ -77,9 +78,10 @@ G.Combat = (function () {
       hitAny = true;
 
       const push = Math.abs(a.dir.x) > 0.3 ? Math.sign(a.dir.x) : (Math.random() < 0.5 ? -1 : 1);
-      if (t.onHit) t.onHit(a.def.dmg, push, a);
+      if (!firstHit) firstHit = t;
+      if (t.onHit) t.onHit(dmg, push, a);
       else {
-        t.total += a.def.dmg;
+        t.total += dmg;
         t.flash = 0.1;
         t.wobbleV += push * (a.def.dmg >= 15 ? 9 : 5);
       }
@@ -89,7 +91,21 @@ G.Combat = (function () {
       const cx = t.x - a.dir.x * t.w * 0.3;
       G.FX.hitstop(a.def.hitstop);
       G.FX.spark(cx, S().screenY(t.z, ch), push, a.def.dmg >= 15 ? 1 : 0.5);
-      G.FX.text(t.x, S().screenY(t.z, t.h + t.height) - 6, String(a.def.dmg));
+      G.FX.text(t.x, S().screenY(t.z, t.h + t.height) - 6, String(dmg));
+    }
+    // 판의 뿔검: 3타가 맞으면 맞은 곳에서 가시덩굴이 솟아 주변 적에게 추가 피해 (한 번 휘두를 때 한 번)
+    const th = firstHit && a.kind === 'side3' && !a.thorned && G.Equip.special('thorns');
+    if (th) {
+      a.thorned = true;
+      const cx = firstHit.x, cz = firstHit.z;
+      G.BFX.thorns(cx, cz, th.radius);
+      G.FX.shake(4, 0.15);
+      for (const t of targets.slice()) {
+        if (t.active === false || t.dummy || !t.onHit) continue;
+        if (Math.hypot(t.x - cx, (t.z - cz) * 1.6) > th.radius + t.w / 2) continue;
+        t.onHit(th.dmg, Math.sign(t.x - cx) || 1, a);
+        G.FX.text(t.x + 10, S().screenY(t.z, t.h + t.height) - 20, String(th.dmg), '#9df07a');
+      }
     }
     return hitAny;
   }
