@@ -181,6 +181,7 @@
     } else {
       // 물리: 고정 간격으로 여러 번 계산
       acc += dt;
+      if (G.Floor.cutscene()) { acc = 0; G.Input.endStep(); }   // 연출 중에는 조작 막음
       while (acc >= CFG.STEP) {
         G.Player.step(player, CFG.STEP);
         G.Input.endStep();
@@ -195,10 +196,17 @@
     updateCamera(dt);
 
     // 그리기
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    // 연출 카메라 (보스 등장): 평소 카메라와 섞어서 확대·이동. 평소엔 zoom 1 그대로
+    const H = CFG.VIEW_H, cine = G.BossIntro.camera(player);
+    let cx = camX + viewW / 2, cy = camY + H / 2, zoom = 1;
+    if (cine) { cx += (cine.x - cx) * cine.k; cy += (cine.y - cy) * cine.k; zoom += (cine.zoom - 1) * cine.k; }
+    const bz = 1 + (zoom - 1) * 0.35;        // 배경은 멀리 있으니 덜 확대
+    ctx.setTransform(scale * bz, 0, 0, scale * bz, viewW / 2 * (1 - bz) * scale, H / 2 * (1 - bz) * scale);
+    const keepX = camX; camX = cx - viewW / 2;
     drawBackground();
+    camX = keepX;
     const sx = fx.shakeX, sy = fx.shakeY;   // 화면 흔들림
-    ctx.setTransform(scale, 0, 0, scale, (-camX + sx) * scale, (-camY + sy) * scale);
+    ctx.setTransform(scale * zoom, 0, 0, scale * zoom, (viewW / 2 - cx * zoom + sx) * scale, (H / 2 - cy * zoom + sy) * scale);
     const bossPhase = G.Floor.isBoss();
     if (bossPhase) G.Boss.drawBack(ctx);      // 보스 뒤 기운
     G.Stage.drawFloor(ctx);

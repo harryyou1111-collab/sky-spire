@@ -452,6 +452,7 @@ G.Boss = (function () {
     if (boss.prev) drawPose(ctx, boss.prev, 1 - boss.fade);
     drawMist(ctx);
     if (boss.pattern && boss.pattern.kind === 'roar') drawRoarGlow(ctx, boss.pattern);
+    if (boss.introGlow > 0 && boss.cur.key === 'idle') drawIntroGlow(ctx, boss.introGlow);   // 등장 연출: 포효할 때 눈·입이 빛남
     if (boss.pattern && boss.pattern.kind === 'vines' && boss.pattern.pressed) drawPressGlow(ctx, boss.pattern);
     if (boss.target && boss.target.active) {
       const t = boss.target, y = S().floorY(t.z) - 18;
@@ -509,6 +510,12 @@ G.Boss = (function () {
       const pt = posePoint('idle', false, R.mouth[0], R.mouth[1]);
       glow(ctx, pt.x, pt.y, Math.min(1, u), 20, 50);
     }
+  }
+  // 등장 연출의 포효 빛 (intro.js가 introGlow 값을 정함)
+  function drawIntroGlow(ctx, u) {
+    const R = def.roarGlow; if (!R) return;
+    for (const e of R.eyes) { const pt = posePoint('idle', false, e[0], e[1]); glow(ctx, pt.x, pt.y, Math.min(1, u), 5, 14); }
+    const pt = posePoint('idle', false, R.mouth[0], R.mouth[1]); glow(ctx, pt.x, pt.y, Math.min(1, u), 20, 60);
   }
   // 땅 내리치기: 두 손에서 초록 빛이 번쩍
   function drawPressGlow(ctx, P) {

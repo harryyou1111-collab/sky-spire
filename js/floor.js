@@ -1,7 +1,7 @@
 // =====================================================================
 // floor.js — 한 층의 흐름
 //   path(몹 구간: 오른쪽으로 나아가는 길) → open(길 끝 보스방 문 열림) → enter(들어가는 중)
-//   → boss(보스전) → clear(클리어)
+//   → intro(보스 등장 연출, intro.js) → boss(보스전) → clear(클리어)
 //
 // 길은 구역(zone)으로 나뉨. 구역에 들어서면 양옆이 가시덩굴로 막히고 그 구역의 몹이 나옴
 // → 다 잡으면 덩굴이 걷히고 "GO ▶" → 다음 구역으로. 마지막 구역을 지나면 길 끝의 문이 열림
@@ -33,20 +33,19 @@ G.Floor = (function () {
     if (G.Boss.state.target) G.Boss.state.target.active = false;
     showUI();
   }
-  function startBoss(player) {
+  // short: 다시 도전할 때는 짧은 등장 연출 (이름 카드만)
+  function startBoss(player, short) {
     G.Mobs.clear();
     G.Stage.setLayout(900, st.def.bossPillars);     // 보스방: 한 화면짜리 전투장
-    st.phase = 'boss'; st.t = 0; st.locked = false;
+    st.phase = 'intro'; st.t = 0; st.locked = false; st.banner = null;
     G.Boss.reset();
-    G.Boss.state.timer = 2.2;               // 이름이 뜨는 동안은 공격하지 않음
-    if (player) { player.x = 220; player.z = 95; player.vx = player.vz = 0; }
-    const d = G.Boss.def;
-    st.banner = { text: d.name, sub: `${st.n}F · ${d.title}`, t: 0, life: 2.2, big: true };
+    if (player) { player.x = 220; player.z = 95; player.vx = player.vz = 0; player.facing = 1; }
+    G.BossIntro.start(!!short);
     showUI();
   }
-  // 다시 도전: 보스전에서 죽었으면 보스전부터, 길에서 죽었으면 길 처음부터
+  // 다시 도전: 보스전에서 죽었으면 보스전부터(짧은 연출), 길에서 죽었으면 길 처음부터
   function retry(player) {
-    if (st.phase === 'boss' || st.phase === 'clear') startBoss(player); else startPath(player);
+    if (isBoss()) startBoss(player, true); else startPath(player);
   }
 
   function showUI() {
@@ -101,10 +100,13 @@ G.Floor = (function () {
     } else if (st.phase === 'enter') {
       st.fade += dt / 0.45;
       if (st.fade >= 1) { startBoss(player); st.fade = 1; st.fadeOut = true; }
+    } else if (st.phase === 'intro') {
+      G.Boss.update(dt, player);
+      if (G.BossIntro.update(dt, player)) st.phase = 'boss';
     } else if (st.phase === 'boss') {
       G.Boss.update(dt, player);
     }
-    if (st.phase !== 'boss') G.BFX.update(dt);      // 보스전 밖에서도 먼지·잎 이펙트 진행
+    if (!isBoss()) G.BFX.update(dt);      // 보스전 밖에서도 먼지·잎 이펙트 진행
     if (st.fadeOut) { st.fade -= dt / 0.45; if (st.fade <= 0) { st.fade = 0; st.fadeOut = false; } }
     st.wall = st.locked ? Math.min(1, st.wall + dt / 0.35) : Math.max(0, st.wall - dt / 0.35);
     st.go = Math.max(0, (st.go || 0) - dt);
@@ -206,14 +208,17 @@ G.Floor = (function () {
       ctx.fillText('GO ▶', viewW - 30, viewH * 0.3);
       ctx.restore();
     }
+    G.BossIntro.draw(ctx, viewW, viewH);
     if (st.fade > 0) {
       ctx.fillStyle = `rgba(0,0,0,${Math.min(1, st.fade)})`;
       ctx.fillRect(0, 0, viewW, viewH);
     }
   }
 
-  function isBoss() { return st.phase === 'boss' || st.phase === 'clear'; }
+  function isBoss() { return st.phase === 'intro' || st.phase === 'boss' || st.phase === 'clear'; }
+  // 연출 중: 조작 막음 (main.js)
+  function cutscene() { return st.phase === 'intro' || st.phase === 'enter'; }
   function cleared() { st.phase = 'clear'; }
 
-  return { state: st, start, retry, update, drawGate, drawOverlay, isBoss, cleared, GATE };
+  return { state: st, start, retry, update, drawGate, drawOverlay, isBoss, cleared, cutscene, GATE };
 })();

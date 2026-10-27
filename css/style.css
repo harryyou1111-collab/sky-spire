@@ -59,6 +59,10 @@ html, body {
   background: linear-gradient(90deg, #b8462e, #f0a050);
 }
 
+/* ---------- 보스 등장 연출 중: 화면 위 버튼·체력 막대 숨김 ---------- */
+#hud, #controls, #boss-bar, #mob-count { transition: opacity .35s; }
+body.cine #hud, body.cine #controls, body.cine #boss-bar, body.cine #mob-count { opacity: 0; }
+
 /* ---------- 몹 구간: 남은 적 ---------- */
 #mob-count {
   position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%;
