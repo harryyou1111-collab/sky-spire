@@ -119,8 +119,16 @@ G.Mobs = (function () {
 
       // 이동 + 밀려남
       const spd = d.speed * (m.state === 'chase' ? 1 : m.state === 'attack' ? 1 : 0.15);
-      m.vx = mvx * spd + m.kbx * m.kb;
-      m.vz = mvz * spd + m.kbz * m.kb;
+      // 쫓아갈 때는 속도가 부드럽게 붙고 줄어듦 (뚝 멈추거나 바로 최고 속도가 되면 미끄러져 보임)
+      const tvx = mvx * spd, tvz = mvz * spd;
+      if (m.state === 'chase') { const k = Math.min(1, dt * 9); m.mvx = (m.mvx || 0) + (tvx - (m.mvx || 0)) * k; m.mvz = (m.mvz || 0) + (tvz - (m.mvz || 0)) * k; }
+      else { m.mvx = tvx; m.mvz = tvz; }
+      m.vx = m.mvx + m.kbx * m.kb;
+      m.vz = m.mvz + m.kbz * m.kb;
+      // 걷기·달리기 그림은 실제로 움직인 거리만큼 넘김 (발걸음과 이동이 맞게)
+      const mv = Math.hypot(m.mvx, m.mvz);
+      m.moving = mv > (m.moving ? 12 : 28);
+      if (m.state === 'chase') m.dist = (m.dist || 0) + mv * dt;
       m.kb = Math.max(0, m.kb - 1400 * dt);
       if (d.float) {
         m.x = Math.max(G.Stage.data.minX + 15, Math.min(G.Stage.data.maxX - 15, m.x + m.vx * dt));

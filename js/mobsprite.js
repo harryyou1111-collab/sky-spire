@@ -43,7 +43,7 @@ G.MobSprite = (function () {
 
   // 게임 상태 → [동작 이름, 동작 속 시간]
   function choose(m) {
-    const d = m.d, st = m.state, mv = Math.hypot(m.vx, m.vz), at = m.at || 0;
+    const d = m.d, st = m.state, at = m.at || 0;
     if (st === 'dead') return ['Death', m.t * (d.deathSpeed || 1.3)];
     if (st === 'hurt') return ['Hurt', m.t / 0.28 * 0.55];
     if (d.kind === 'ranged') {
@@ -52,19 +52,21 @@ G.MobSprite = (function () {
         const u = st === 'attack' ? m.t / (d.active + d.recover) : (d.active + m.t) / (d.active + d.recover);
         return ['Shoot', lerp(SEG.Shoot.s, SEG.Shoot.e, u)];
       }
-      return mv > 15 ? ['Run', at] : ['Aim', at];
+      return m.moving ? ['Run', null] : ['Aim', at];
     }
     const atk = d.kind === 'heavy' ? (m.atkKind === 'smash' ? 'Smash' : 'Swing') : 'Stab', sg = SEG[atk];
     if (st === 'windup') return [atk, lerp(sg.s, sg.i, m.t / d.windup)];
     if (st === 'attack') return [atk, lerp(sg.i, sg.i2, m.t / d.active)];
     if (st === 'recover') return [atk, lerp(sg.i2, sg.e, m.t / d.recover)];
-    if (mv > 15) return [d.kind === 'heavy' ? 'Walk' : 'Run', at];
+    if (m.moving) return [d.kind === 'heavy' ? 'Walk' : 'Run', null];
     return [d.kind === 'heavy' ? 'Idle' : 'Guard', at];
   }
 
   // 동작 + 시간 → 그림 한 장
-  function frameOf(s, name, t) {
+  //   t가 null이면 걷기·달리기: 움직인 거리 ÷ 동작 속도(굽을 때 잰 발걸음 속도)로 장면을 정함
+  function frameOf(s, name, t, m) {
     const c = s.meta.clips[name] || Object.values(s.meta.clips)[0];
+    if (t == null) t = c.speed ? (m.dist || 0) / c.speed : (m.at || 0);
     let i = Math.floor((t - c.t0) * c.fps + 1e-4);
     i = c.loop ? ((i % c.n) + c.n) % c.n : Math.max(0, Math.min(c.n - 1, i));
     return c.frames[i];
@@ -78,7 +80,7 @@ G.MobSprite = (function () {
     const s = sets[m.type];
     if (!s || !s.ready) return false;
     const [name, t] = choose(m);
-    const f = frameOf(s, name, t);
+    const f = frameOf(s, name, t, m);
     const [si, sx, sy, sw, sh, ox, oy] = f, k = 1 / s.meta.scale;
     const img = s.imgs[si], dw = sw * k, dh = sh * k;
     let col = null, a = 0;

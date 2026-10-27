@@ -287,6 +287,7 @@ function frame(list, dt) {
     inst.slot = -1;
     if (slot >= COLS * ROWS) continue;
     inst.slot = slot++;
+    m._inst = inst;
     // 몸 방향: 바라보는 쪽(좌우) + 앞뒤로 움직이면 살짝 그쪽으로
     const tz = (m.state === 'chase' && Math.abs(m.vz) > 10) ? Math.sign(m.vz) * 0.45 : 0;
     const target = Math.atan2(m.face, tz);
@@ -323,6 +324,27 @@ function draw(ctx, m, x, y) {
 }
 function has(m) { return M.ready && !!m.d.model && !!M.models[m.d.model]; }
 
+// 굽기용: 걷기·달리기 동작에서 발이 땅을 밀어내는 속도(게임 단위/초) 재기 → 게임에서 이동 속도에 맞춰 재생 (발 미끄러짐 방지)
+M.strideSpeed = function (m, clip, dur) {
+  const N = 90, feet = [];
+  frame([m], 0);
+  const inst = m._inst; if (!inst) return 0;
+  inst.obj.traverse(o => { if (o.isBone && /(LeftFoot|RightFoot)$/.test(o.name)) feet.push(o); });
+  const samples = feet.map(() => []), v = new THREE.Vector3();
+  for (let i = 0; i <= N; i++) {
+    M.debugPose = [clip, dur * i / N]; frame([m], 0); inst.obj.updateMatrixWorld(true);
+    feet.forEach((f, k) => { f.getWorldPosition(v); samples[k].push([v.x, v.y]); });
+  }
+  const speeds = [];
+  for (const sm of samples) {
+    const minY = Math.min(...sm.map(p => p[1]));
+    for (let i = 1; i < sm.length; i++) {
+      if (sm[i][1] < minY + 0.04 && sm[i - 1][1] < minY + 0.04) speeds.push(Math.abs(sm[i][0] - sm[i - 1][0]) / (dur / N));
+    }
+  }
+  speeds.sort((a, b) => a - b);
+  return speeds.length ? speeds[Math.floor(speeds.length / 2)] * UPM : 0;
+};
 M.frame = frame; M.draw = draw; M.has = has; M.SW = SW; M.SH = SH; M.FOOT = FOOT;
 M.canvas = () => renderer && renderer.domElement;
 M.clear = () => { for (const inst of pool.values()) dispose(inst); pool.clear(); };

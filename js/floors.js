@@ -52,7 +52,7 @@ G.MobDefs = {
   // 사티로스 창병: 다가와서 창으로 앞으로 찌름 (찌르며 앞으로 내딛음)
   satyr_spear: {
     name: '사티로스 창병', kind: 'melee',
-    hp: 40, speed: 95, w: 32, height: 112,
+    hp: 40, speed: 115, w: 32, height: 112,
     range: 55, windup: 0.5, active: 0.15, recover: 0.55, cooldown: 1.1,
     dmg: 10, lunge: 260, reach: 75, thick: 26,
     color: '#7a5a3c', cloth: '#5c3b2a',
@@ -61,7 +61,7 @@ G.MobDefs = {
   // 사티로스 궁수: 거리를 두고 활을 쏨. 화살은 똑바로 날아감 → 옆으로 비키거나 점프·구르기
   satyr_archer: {
     name: '사티로스 궁수', kind: 'ranged',
-    hp: 28, speed: 85, w: 28, height: 96,
+    hp: 28, speed: 100, w: 28, height: 96,
     range: 260, windup: 0.75, active: 0.1, recover: 0.4, cooldown: 1.7,
     dmg: 8, arrowSpeed: 430, arrowH: 55,
     color: '#7a5a3c', cloth: '#3f5a2c',
@@ -71,7 +71,7 @@ G.MobDefs = {
   //   휘두르기(swing)와 내려찍기(smash)를 번갈아 씀
   satyr_brute: {
     name: '사티로스 거한', kind: 'heavy',
-    hp: 130, speed: 55, w: 46, height: 140,
+    hp: 130, speed: 65, w: 46, height: 140,
     range: 80, windup: 0.9, active: 0.2, recover: 1.0, cooldown: 1.6,
     poise: true, kbMul: 0.25,
     attacks: {

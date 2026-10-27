@@ -8,6 +8,7 @@
 # CLIPS: 몹마다 구울 동작과 구간
 #   [동작 이름, 시작(초), 끝(초), 초당 장수, 반복 여부]
 #   시작~끝은 게임에서 실제로 쓰는 구간만 (mobsprite.js의 SEG와 같은 숫자)
+#   걷기·달리기(Run, Walk)는 발이 땅을 미는 속도도 재서 json에 저장 → 게임에서 이동한 거리만큼 재생 (발 미끄러짐 방지)
 # =====================================================================
 import asyncio, base64, io, json, os, sys
 from PIL import Image
@@ -15,11 +16,11 @@ from playwright.async_api import async_playwright
 
 SCALE = 1.6          # 게임 단위 1 = 그림 픽셀 1.6개 (폰 화면 배율과 비슷하게. 크면 선명하지만 무거움)
 CLIPS = {
-  'satyr_spear': [['Guard', 0, 1.75, 10, True], ['Run', 0, 0.917, 15, True], ['Stab', 0.45, 2.2, 15, False],
+  'satyr_spear': [['Guard', 0, 1.75, 10, True], ['Run', 0, 0.917, 22, True], ['Stab', 0.45, 2.2, 15, False],
                   ['Hurt', 0, 0.55, 15, False], ['Death', 0, 2.5, 10, False]],
-  'satyr_archer': [['Aim', 0, 3.75, 6, True], ['Run', 0, 0.917, 15, True], ['Draw', 0.15, 1.4, 12, False],
+  'satyr_archer': [['Aim', 0, 3.75, 6, True], ['Run', 0, 0.917, 22, True], ['Draw', 0.15, 1.4, 12, False],
                    ['Shoot', 0.4, 0.88, 15, False], ['Hurt', 0, 0.55, 15, False], ['Death', 0, 2.5, 10, False]],
-  'satyr_brute': [['Idle', 0, 1.958, 10, True], ['Walk', 0, 1.417, 12, True], ['Swing', 0.25, 2.1, 15, False],
+  'satyr_brute': [['Idle', 0, 1.958, 10, True], ['Walk', 0, 1.417, 18, True], ['Swing', 0.25, 2.1, 15, False],
                   ['Smash', 0.15, 1.8, 15, False], ['Hurt', 0, 0.55, 15, False], ['Death', 0, 2.83, 10, False]],
 }
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
@@ -65,6 +66,10 @@ async def main():
                     bb = (max(0, bb[0] - 1), max(0, bb[1] - 1), min(im.width, bb[2] + 1), min(im.height, bb[3] + 1))
                     lst.append((im.crop(bb), bb[0] - fx, bb[1] - fy))
                 meta['clips'][name] = {'t0': t0, 'fps': fps, 'loop': loop, 'n': len(lst), 'frames': []}
+                if name in ('Run', 'Walk'):
+                    sp = await pg.evaluate(f"G.Mob3D.strideSpeed({{d:G.MobDefs['{typ}'],type:'{typ}',face:1,state:'chase',vx:0,vz:0,t:0,flash:0}}, '{name}', {t1})")
+                    meta['clips'][name]['speed'] = round(sp, 1)   # 이 동작을 1배속으로 재생할 때 맞는 이동 속도 (게임 단위/초)
+                    print(typ, name, 'stride speed', round(sp, 1))
                 frames.append((name, lst))
                 print(typ, name, len(lst), 'frames')
             # 선반 쌓기: 키 큰 순서로 줄을 채움, 시트 높이가 넘치면 다음 시트
