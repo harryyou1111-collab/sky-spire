@@ -43,10 +43,25 @@ G.Sound = (function () {
     for (const name of Object.keys(SFX)) loadFile(`assets/sfx/${name}.mp3`).then(b => { buffers[name] = b; }).catch(() => {});
   }
   // 첫 터치 때 (폰은 이때부터 소리가 남)
+  //   폰 브라우저는 화면을 '누르는 순간'이 아니라 '떼는 순간'(touchend, click)에만 소리를 허락해서
+  //   소리가 켜질 때까지 터치·클릭·키보드마다 다시 시도함
   function unlock() {
     init();
-    if (ctx && ctx.state !== 'running') ctx.resume();
+    if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+    // 아이폰: 무음 모드여도 게임 소리가 나게 (지원하는 사파리에서만)
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    // 아주 짧은 무음을 한 번 재생해서 소리 장치를 깨움 (아이폰 사파리)
+    if (ctx && !unlock.primed) {
+      unlock.primed = true;
+      const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource();
+      s.buffer = b; s.connect(ctx.destination); s.start(0);
+    }
   }
+  const retry = () => {
+    if (ctx && ctx.state === 'running') { ['touchend', 'click', 'keydown'].forEach(e => removeEventListener(e, retry, true)); return; }
+    unlock();
+  };
+  ['touchend', 'click', 'keydown'].forEach(e => addEventListener(e, retry, true));
 
   // 효과음 재생. 같은 소리가 너무 겹치지 않게 아주 짧은 간격은 건너뜀
   const lastAt = {};
