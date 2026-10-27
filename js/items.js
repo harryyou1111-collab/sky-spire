@@ -20,7 +20,7 @@ G.Items = {
 };
 
 G.Equip = (function () {
-  const BASE_WEAPON = { name: '기본 검', desc: '탑에 오를 때부터 들고 있던 평범한 검.' };
+  const BASE_WEAPON = { name: '기본 검', slot: 'weapon', icon: 'assets/items/basic_sword_icon.webp', desc: '탑에 오를 때부터 들고 있던 평범한 검.' };
   const item = slot => { const id = G.Save.data.equip[slot]; return id && G.Items[id] ? G.Items[id] : null; };
   function list() { return ['weapon', 'charm'].map(item).filter(Boolean); }
   function atkBonus() { return list().reduce((n, it) => n + (it.atk || 0), 0); }
@@ -30,6 +30,12 @@ G.Equip = (function () {
     const it = G.Items[id]; if (!it) return;
     const E = G.Save.data.equip;
     E[it.slot] = E[it.slot] === id ? null : id;
+    G.Save.save();
+    apply();
+  }
+  // 칸에 장착 (id가 null이면 빼기 → 무기는 기본 검)
+  function set(slot, id) {
+    G.Save.data.equip[slot] = id || null;
     G.Save.save();
     apply();
   }
@@ -45,5 +51,5 @@ G.Equip = (function () {
     O.push(id); G.Save.save();
     return G.Items[id];
   }
-  return { item, list, atkBonus, special, toggle, apply, grant, BASE_WEAPON };
+  return { item, list, atkBonus, special, toggle, set, apply, grant, BASE_WEAPON };
 })();

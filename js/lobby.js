@@ -4,13 +4,17 @@
 // 화면은 index.html의 #lobby. 주인공은 3D 캐릭터(hero3d)를 그대로 가져와 천천히 돌려 보여줌 (손가락으로 돌리기 가능)
 // 배경은 탑 입구 그림(assets/world/lobby.jpg). 숲·폐허는 탑 안의 세계라 바깥은 맑은 하늘
 // 처음 탑에 오를 때는 오프닝(descent.js: 꼭대기에서 입구까지 내려오는 장면) 뒤에 1층 시작
-// 장비·스킬은 아직 얻을 방법이 없어서 빈 칸 + 안내만 (보스 보상을 만들 때 여기를 채움)
+// 장비 탭은 따로 된 화면(#lb-equip): 가운데 주인공(능력치는 머리 위), 왼쪽 무기, 오른쪽 장신구.
+//   칸을 누르면 그 칸의 장비 목록이 펼쳐지고, 고르면 바로 장착 → 가운데 주인공의 칼도 바뀜
+// 스킬은 아직 얻을 방법이 없어서 빈 칸 + 안내만
 // =====================================================================
 G.Lobby = (function () {
   const el = document.getElementById('lobby');
   const heroCv = document.getElementById('lb-hero'), hctx = heroCv.getContext('2d');
   const $ = s => el.querySelector(s);
   const panel = $('#lb-panel'), panelBody = $('.lb-panel-body'), panelTitle = $('.lb-panel-head b');
+  const eqEl = $('#lb-equip'), eqCv = $('#eq-hero'), ectx = eqCv.getContext('2d');
+  let eqOpen = false; const eqList = { weapon: false, charm: false };   // 펼친 목록
   let open = false, sel = 1, yaw = 0.5, spin = 0.25, drag = null;
 
   const floors = () => Object.keys(G.Floors).map(Number).sort((a, b) => a - b);
@@ -25,7 +29,7 @@ G.Lobby = (function () {
     sel = maxSel();
     el.classList.remove('hidden');
     document.body.classList.add('in-lobby');
-    closePanel();
+    closePanel(); closeEquip();
     refresh();
   }
   function hide() {
@@ -54,31 +58,6 @@ G.Lobby = (function () {
 
   // ---------- 창 (장비·스킬·강화·기록·설정) ----------
   const PANELS = {
-    equip() {
-      const S = G.Save.data, C = G.CFG, E = G.Equip, w = E.item('weapon'), c = E.item('charm');
-      const bonus = E.atkBonus(), base = C.attack.side1.dmg;
-      const slot = (it, icon, label, empty) => `<div class="lb-slot${it ? ' on' : ''}">
-          ${it ? `<img src="${it.icon}?v=${G.VERSION}" alt="">` : `<i>${icon}</i>`}<b>${label}</b><span>${it ? it.name : empty}</span></div>`;
-      const cards = S.owned.equip.map(id => {
-        const it = G.Items[id]; if (!it) return '';
-        const on = S.equip[it.slot] === id;
-        return `<div class="lb-item${on ? ' on' : ''}">
-          <img src="${it.icon}?v=${G.VERSION}" alt="">
-          <div class="lb-item-info"><b>${it.name}</b><small>${it.slot === 'weapon' ? '무기' : '장신구'} · ${it.from}</small>
-            <p>${it.atk ? `<em>공격 +${it.atk}</em>` : ''}${it.special ? `<em class="sp">${it.special.text}</em>` : ''}</p>
-            <p class="desc">${it.desc}</p></div>
-          <button type="button" class="lb-btn${on ? '' : ' gold'}" data-equip="${id}">${on ? '해제' : '장착'}</button>
-        </div>`;
-      }).join('');
-      return ['장비', `
-        <div class="lb-stats">
-          <div><span>체력</span><b>${C.player.maxHp}</b></div>
-          <div><span>공격</span><b>${base + bonus}</b>${bonus ? `<small> (+${bonus})</small>` : ''}</div>
-          <div><span>포션</span><b>${C.potion.count}</b></div>
-        </div>
-        <div class="lb-slots">${slot(w, '⚔', '무기', '기본 검')}${slot(c, '◈', '장신구', '비어 있음')}</div>
-        ${cards ? `<div class="lb-items">${cards}</div>` : '<p class="lb-hint">가진 장비가 없어요. 장비를 주는 보스를 쓰러뜨리면 얻을 수 있어요.</p>'}`];
-    },
     skills() {
       const S = G.Save.data;
       const slot = (s, i) => `<div class="lb-slot${s ? ' on' : ''}"><i>${i + 1}</i><b>스킬 ${i + 1}</b><span>${s || '비어 있음'}</span></div>`;
@@ -120,6 +99,54 @@ G.Lobby = (function () {
   }
   function closePanel() { panel.classList.add('hidden'); }
 
+  // ---------- 장비 화면 ----------
+  function openEquip() { eqOpen = true; eqList.weapon = eqList.charm = false; eqEl.classList.remove('hidden'); el.classList.add('eq-open'); renderEquip(); }
+  function closeEquip() { eqOpen = false; eqEl.classList.add('hidden'); el.classList.remove('eq-open'); }
+  const img = it => `<img src="${it.icon}?v=${G.VERSION}" alt="">`;
+  function renderEquip() {
+    const S = G.Save.data, C = G.CFG, E = G.Equip, bonus = E.atkBonus();
+    $('.eq-stats').innerHTML = `
+      <div><span>체력</span><b>${C.player.maxHp}</b></div>
+      <div><span>공격</span><b>${C.attack.side1.dmg + bonus}</b>${bonus ? `<small>+${bonus}</small>` : ''}</div>
+      <div><span>포션</span><b>${C.potion.count}</b></div>`;
+    for (const col of eqEl.querySelectorAll('.eq-col')) {
+      const slot = col.dataset.slot, label = slot === 'weapon' ? '무기' : '장신구';
+      const cur = E.item(slot) || (slot === 'weapon' ? E.BASE_WEAPON : null);
+      // 이 칸에 넣을 수 있는 것: 무기는 기본 검 + 가진 무기, 장신구는 가진 장신구
+      const ids = (slot === 'weapon' ? [null] : []).concat(S.owned.equip.filter(id => G.Items[id] && G.Items[id].slot === slot));
+      const rows = ids.map(id => {
+        const it = id ? G.Items[id] : E.BASE_WEAPON, on = (S.equip[slot] || null) === id;
+        const info = [it.atk ? `공격 +${it.atk}` : '', it.special ? it.special.text : ''].filter(Boolean).join(' · ') || '특별한 효과 없음';
+        return `<button type="button" class="eq-row${on ? ' on' : ''}" data-pick="${id || ''}">
+          ${img(it)}<div><b>${it.name}${on ? ' <i>장착 중</i>' : ''}</b><span>${info}</span>${on ? `<p>${it.desc}</p>` : ''}</div></button>`;
+      }).join('');
+      col.innerHTML = `
+        <button type="button" class="eq-slot${eqList[slot] ? ' open' : ''}" data-toggle="${slot}">
+          <small>${label}</small>
+          ${cur ? img(cur) : '<i>◈</i>'}
+          <b>${cur ? cur.name : '비어 있음'}</b>
+          <em>${eqList[slot] ? '닫기 ▲' : '바꾸기 ▼'}</em>
+        </button>
+        <div class="eq-list${eqList[slot] ? '' : ' hidden'}">
+          ${rows || `<p class="eq-empty">아직 ${label}가 없어요<br><span>보스를 쓰러뜨리면 얻을 수 있어요</span></p>`}
+        </div>`;
+    }
+  }
+  eqEl.addEventListener('click', e => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    e.stopPropagation();
+    if (t.classList.contains('eq-back')) closeEquip();
+    else if (t.dataset.toggle) { eqList[t.dataset.toggle] = !eqList[t.dataset.toggle]; renderEquip(); }
+    else if (t.dataset.pick !== undefined) {
+      const slot = t.closest('.eq-col').dataset.slot, id = t.dataset.pick || null;
+      // 장신구는 장착 중인 걸 다시 누르면 빼기, 무기는 기본 검으로 바꾸려면 기본 검을 누름
+      if (slot === 'charm' && G.Save.data.equip.charm === id) G.Equip.set(slot, null);
+      else G.Equip.set(slot, id);
+      renderEquip();
+    }
+  });
+
   // 탑 오르기: 처음이면 오프닝을 보여 준 뒤 시작
   function climb() {
     const S = G.Save.data, n = sel;
@@ -132,7 +159,8 @@ G.Lobby = (function () {
     if (performance.now() - shownAt < 450) return;     // 시작 화면을 누른 손가락이 그대로 로비 버튼을 누르지 않게
     const t = e.target.closest('button, [data-open]');
     if (!t) return;
-    if (t.dataset.open) openPanel(t.dataset.open);
+    if (t.dataset.open === 'equip') openEquip();
+    else if (t.dataset.open) openPanel(t.dataset.open);
     else if (t.dataset.floor) { sel = Math.max(1, Math.min(maxSel(), sel + Number(t.dataset.floor))); refresh(); }
     else if (t.classList.contains('lb-close')) closePanel();
     else if (t.id === 'lb-go') climb();
@@ -140,31 +168,35 @@ G.Lobby = (function () {
   panel.addEventListener('click', e => { if (e.target === panel) closePanel(); });
 
   // 주인공 돌리기 (손가락으로 좌우로 끌기)
-  heroCv.addEventListener('pointerdown', e => { drag = { x: e.clientX, yaw }; heroCv.setPointerCapture(e.pointerId); });
-  heroCv.addEventListener('pointermove', e => { if (drag) yaw = drag.yaw + (e.clientX - drag.x) * 0.012; });
-  heroCv.addEventListener('pointerup', () => { drag = null; });
+  for (const cv of [heroCv, eqCv]) {
+    cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, yaw }; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', e => { if (drag) yaw = drag.yaw + (e.clientX - drag.x) * 0.012; });
+    cv.addEventListener('pointerup', () => { drag = null; });
+  }
 
   // ---------- 매 프레임 (로비가 열려 있을 때 main.js가 부름) ----------
   const idle = { state: 'idle', vx: 0, vz: 0, atk: null, dash: null, facing: 1 };
   function frame(dt) {
     if (!open) return;
+    // 장비 화면이 열려 있으면 그쪽 캔버스에 (가운데, 조금 작게), 아니면 로비 캔버스에
+    const cv = eqOpen ? eqCv : heroCv, c2 = eqOpen ? ectx : hctx;
     const H3 = G.Hero3D;
-    const w = heroCv.clientWidth, h = heroCv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
-    if (heroCv.width !== Math.round(w * dpr) || heroCv.height !== Math.round(h * dpr)) {
-      heroCv.width = Math.round(w * dpr); heroCv.height = Math.round(h * dpr);
+    const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     }
-    hctx.setTransform(1, 0, 0, 1, 0, 0);
-    hctx.clearRect(0, 0, heroCv.width, heroCv.height);
-    if (!H3 || !H3.ready) return;
+    c2.setTransform(1, 0, 0, 1, 0, 0);
+    c2.clearRect(0, 0, cv.width, cv.height);
+    if (!H3 || !H3.ready || !cv.height) return;
     if (!drag) yaw += dt * spin;
     H3.yaw = yaw;
     H3.update(dt, idle);
-    // 3D 캐릭터(키 heightUnits)가 캔버스 높이의 70%가 되게 크게, 발은 풀밭(아래쪽 4% 위)에
-    const k = heroCv.height * 0.70 / H3.heightUnits;
+    // 3D 캐릭터(키 heightUnits)가 캔버스 높이의 70%가 되게 크게, 발은 아래쪽 4% 위에
+    const k = cv.height * (eqOpen ? 0.74 : 0.70) / H3.heightUnits;
     // 로비에서는 주인공을 크게 보여 주니까 3D 그림도 그만큼 선명하게 (게임으로 돌아가면 main.js가 원래대로)
     if (Math.abs((G.viewScale || 1) - k) > 0.05) { G.viewScale = k; H3.resize(); }
-    hctx.setTransform(k, 0, 0, k, 0, 0);
-    H3.draw(hctx, heroCv.width / k / 2, heroCv.height / k * 0.96);
+    c2.setTransform(k, 0, 0, k, 0, 0);
+    H3.draw(c2, cv.width / k / 2, cv.height / k * (eqOpen ? 0.95 : 0.96));
   }
 
   return { show, hide, frame, refresh, get open() { return open; } };

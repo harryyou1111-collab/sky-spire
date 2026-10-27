@@ -264,6 +264,67 @@ body.in-lobby #hud, body.in-lobby #controls, body.in-lobby #boss-bar, body.in-lo
 }
 .lb-tabs button i { font-style: normal; font-size: 17px; color: #e6cd92; }
 .lb-tabs button.locked { opacity: .45; }
+/* ---------- 장비 화면 (로비 안) ---------- */
+#lb-equip {
+  inset: 0; z-index: 4;
+  background:
+    radial-gradient(ellipse 34% 60% at 50% 62%, rgba(230, 205, 146, .14), transparent 70%),
+    linear-gradient(rgba(6, 8, 12, .82), rgba(4, 5, 8, .92));
+}
+#lb-equip.hidden { display: none; }
+#lobby.eq-open > :not(.lb-bg):not(#lb-equip):not(#lb-panel) { visibility: hidden; }   /* 장비 화면 뒤 로비 글자·버튼 숨김 */
+#lobby.eq-open .lb-bg { filter: brightness(.5) saturate(.8) blur(3px); }
+#lb-equip > * { position: absolute; }
+.eq-head { top: max(12px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 14px; z-index: 2; }
+.eq-head b { font: 800 18px system-ui, sans-serif; letter-spacing: 8px; color: #e6cd92; }
+.eq-back {
+  padding: 7px 14px; border-radius: 18px; font: 700 13px system-ui, sans-serif; color: #e8e2d4;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .18);
+}
+.eq-stats { top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 2; }
+.eq-stats div {
+  min-width: 74px; padding: 5px 12px; border-radius: 10px; text-align: center;
+  background: rgba(0, 0, 0, .45); border: 1px solid rgba(230, 205, 146, .25);
+}
+.eq-stats span { display: block; font-size: 10px; letter-spacing: 2px; color: #a9a2b6; }
+.eq-stats b { font-size: 17px; color: #fff; }
+.eq-stats small { margin-left: 3px; font-size: 11px; color: #9df07a; }
+#eq-hero { left: 30%; right: 30%; top: 60px; bottom: 0; width: 40%; height: calc(100% - 60px); touch-action: none; }
+.eq-col {
+  top: 64px; bottom: 12px; width: 28%; display: flex; flex-direction: column; gap: 8px; z-index: 1;
+}
+.eq-col.left { left: max(16px, env(safe-area-inset-left)); }
+.eq-col.right { right: max(16px, env(safe-area-inset-right)); }
+.eq-slot {
+  position: relative; flex: none; padding: 10px 12px 9px; border-radius: 12px; text-align: center;
+  background: rgba(14, 15, 17, .82); border: 1px solid rgba(230, 205, 146, .4); color: #f1ead8;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.eq-slot.open { border-color: rgba(230, 205, 146, .8); box-shadow: 0 0 16px rgba(230, 205, 146, .2); }
+.eq-slot small { font-size: 10.5px; letter-spacing: 4px; color: #e6cd92; }
+.eq-slot img { width: 92%; height: 34px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(140, 255, 120, .3)); }
+.eq-slot > i { font-style: normal; font-size: 24px; color: rgba(230, 205, 146, .5); line-height: 34px; }
+.eq-slot b { font-size: 14px; }
+.eq-slot em { font-style: normal; font-size: 10.5px; color: #8f8a9c; }
+.eq-list {
+  flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: 6px;
+  padding: 6px; border-radius: 12px; background: rgba(10, 11, 13, .7); border: 1px solid rgba(255, 255, 255, .08);
+}
+.eq-list.hidden { display: none; }
+.eq-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 9px; text-align: left; color: #e8e2d4;
+  background: rgba(255, 255, 255, .04); border: 1px solid transparent;
+}
+.eq-row.on { border-color: rgba(157, 240, 122, .55); background: rgba(120, 220, 100, .07); }
+.eq-row img { width: 74px; flex: none; object-fit: contain; }
+.eq-row div { min-width: 0; }
+.eq-row b { display: block; font-size: 13px; }
+.eq-row b i { font-style: normal; font-size: 10px; color: #9df07a; margin-left: 4px; }
+.eq-row span { display: block; margin-top: 2px; font-size: 11px; color: #9df07a; line-height: 1.35; }
+.eq-row p { margin-top: 3px; font-size: 10.5px; color: #8f8a9c; line-height: 1.4; }
+.eq-empty { padding: 18px 6px; text-align: center; font-size: 12.5px; color: #a9a2b6; }
+.eq-empty span { font-size: 11px; color: #6f6a7c; }
+
 #lb-panel { inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .58); }
 #lb-panel.hidden { display: none; }
 .lb-panel-box {
