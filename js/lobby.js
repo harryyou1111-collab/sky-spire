@@ -19,8 +19,9 @@ G.Lobby = (function () {
   // 고를 수 있는 층: 1층 ~ (깬 최고층 + 1), 단 만들어진 층까지만
   const maxSel = () => Math.min(G.Save.data.best + 1, maxBuilt());
 
+  let shownAt = 0;
   function show() {
-    open = true;
+    open = true; shownAt = performance.now();
     sel = maxSel();
     el.classList.remove('hidden');
     document.body.classList.add('in-lobby');
@@ -48,16 +49,19 @@ G.Lobby = (function () {
     el.querySelector('[data-floor="-1"]').classList.toggle('off', sel <= 1);
     el.querySelector('[data-floor="1"]').classList.toggle('off', sel >= maxSel());
     $('#lb-best').textContent = S.best ? `최고 ${S.best}F` : '아직 깬 층 없음';
-    const C = G.CFG;
-    $('#lb-stat').innerHTML = `<span>체력 <b>${C.player.maxHp}</b></span><span>공격 <b>${C.attack.side1.dmg}</b></span><span>포션 <b>${C.potion.count}</b></span>`;
   }
   const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
   // ---------- 창 (장비·스킬·강화·기록·설정) ----------
   const PANELS = {
     equip() {
-      const S = G.Save.data;
+      const S = G.Save.data, C = G.CFG;
       return ['장비', `
+        <div class="lb-stats">
+          <div><span>체력</span><b>${C.player.maxHp}</b></div>
+          <div><span>공격</span><b>${C.attack.side1.dmg}</b></div>
+          <div><span>포션</span><b>${C.potion.count}</b></div>
+        </div>
         <div class="lb-slots">
           <div class="lb-slot on"><i>⚔</i><b>무기</b><span>${S.equip.weapon || '기본 검'}</span></div>
           <div class="lb-slot"><i>◈</i><b>장신구</b><span>${S.equip.charm || '비어 있음'}</span></div>
@@ -113,6 +117,7 @@ G.Lobby = (function () {
   }
 
   el.addEventListener('click', e => {
+    if (performance.now() - shownAt < 450) return;     // 시작 화면을 누른 손가락이 그대로 로비 버튼을 누르지 않게
     const t = e.target.closest('button, [data-open]');
     if (!t) return;
     if (t.dataset.open) openPanel(t.dataset.open);
