@@ -101,6 +101,23 @@ G.Render = (function () {
     return true;
   }
 
+  // 긴 길 전용 파노라마 배경: 길 처음엔 그림 왼쪽 끝, 길 끝(보스방 문)에선 그림 오른쪽 끝이 보이게 천천히 흘려 보냄
+  //   pathW: 길 전체 길이. 반복 없이 한 장의 긴 그림을 지나감
+  function backgroundPath(ctx, src, viewW, viewH, camX, pathW, horizon, horizonY, edge) {
+    const im = src && getImg(src);
+    if (!im) return false;
+    const iw = im.naturalWidth, ih = im.naturalHeight;
+    const k = Math.max(viewH / ih, horizonY / (horizon * ih)) * 1.02;
+    const w = iw * k, h = ih * k, y = Math.max(horizonY - horizon * h, 0);
+    const travel = Math.max(1, pathW - viewW);
+    const t = Math.max(0, Math.min(1, camX / travel));
+    const x = w > viewW ? -(w - viewW) * t : (viewW - w) / 2;
+    ctx.fillStyle = edge || '#000';
+    ctx.fillRect(0, 0, viewW, viewH);
+    ctx.drawImage(im, x, y, w, h);
+    return true;
+  }
+
   // 뼈 하나를 그 뼈의 좌표계로 옮겨서 draw(ctx, len)을 실행
   function inBone(ctx, j, draw) {
     ctx.save();
@@ -407,5 +424,5 @@ G.Render = (function () {
     ctx.restore();
   }
 
-  return { drawRig, shadow, drawJoints, background, backgroundScroll, getImg, missing };
+  return { drawRig, shadow, drawJoints, background, backgroundScroll, backgroundPath, getImg, missing };
 })();

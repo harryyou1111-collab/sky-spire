@@ -22,6 +22,8 @@ G.Floors = {
         { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 }] },
       ],
       end: 3300,
+      bg: 'assets/bosses/pan/path_bg.jpg',   // 길 배경 (긴 그림 한 장: 왼쪽=길 시작, 오른쪽=보스방 앞. 오른쪽 끝은 보스방 배경과 같은 그림)
+      bgHorizon: 0.64,
       gateX: 3080,
       pillars: [
         { x: 130,  z: 70, rx: 36, rz: 18, h: 44 },

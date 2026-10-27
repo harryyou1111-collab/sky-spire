@@ -84,7 +84,12 @@
     const H = CFG.VIEW_H, th = G.Boss.def.theme;
     // 배경 그림이 있으면 그것만 (그림 속 지평선을 전투장 안쪽 끝에 맞춤)
     // 몹 구간(긴 길): 배경 그림을 이어 붙여 천천히 흘려보냄
-    if (!G.Floor.isBoss() && G.Render.backgroundScroll(ctx, th.bg, viewW, H, camX, th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0], 0.3)) return;
+    if (!G.Floor.isBoss()) {
+      const P = G.Floor.state.def && G.Floor.state.def.path;
+      // 길 전용 긴 그림이 있으면 그걸 한 번 쭉 지나감, 없으면 보스 배경을 이어 붙여 흘림
+      if (P && P.bg && G.Render.backgroundPath(ctx, P.bg, viewW, H, camX, CFG.ARENA_W, P.bgHorizon || th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0])) return;
+      if (G.Render.backgroundScroll(ctx, th.bg, viewW, H, camX, th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0], 0.3)) return;
+    }
     if (G.Render.background(ctx, th.bg, viewW, H, camX, CFG.ARENA_W, th.horizon || 0.62, G.Stage.floorY(0) - camY, th.sky[0])) return;
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, th.sky[0]);
