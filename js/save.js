@@ -15,7 +15,9 @@ G.Save = (function () {
     owned: { equip: [], skills: [] },       // 가진 장비·스킬 (보스 보상)
     stats: { deaths: 0, playTime: 0 },
     seenOpening: false,                     // 오프닝(탑 꼭대기 → 입구)을 봤는지
-    settings: { sfx: 0.8, bgm: 0.5 },       // 음량 (효과음, 배경음)
+    seenCine: {},                           // 본 보스 시네마틱 (보스 이름 → true)
+    fails: {},                              // 층별로 진 횟수 (보스 대사용)
+    settings: { sfx: 0.8, bgm: 0.7 },       // 음량 (효과음, 배경음)
   });
   let data = load();
 
@@ -41,7 +43,12 @@ G.Save = (function () {
     save();
     return first;
   }
-  function addDeath() { data.stats.deaths++; save(); }
+  function addDeath(n) {
+    data.stats.deaths++;
+    if (n) { data.fails = data.fails || {}; data.fails[n] = (data.fails[n] || 0) + 1; }
+    save();
+    return n ? data.fails[n] : 0;
+  }
   function addPlayTime(sec) { data.stats.playTime += sec; }
   function reset() { data = blank(); save(); }
 

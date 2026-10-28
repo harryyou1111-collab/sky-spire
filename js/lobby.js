@@ -159,6 +159,9 @@ G.Lobby = (function () {
   // 탑 오르기: 처음이면 오프닝을 보여 준 뒤 시작
   function climb() {
     const S = G.Save.data, n = sel;
+    // 이 층 보스의 시네마틱을 아직 안 봤으면, 누르는 순간 영상을 미리 깨워 둠 (폰에서 소리 나게)
+    const B = bossOf(n);
+    if (B.cine && !(S.seenCine || {})[G.Floors[n].boss]) G.Cine.prime(B.cine);
     const go = () => { G.Game.play(n); G.Floor.state.fade = 1; G.Floor.state.fadeOut = true; };   // 검은 화면에서 서서히 밝아짐
     if (!S.seenOpening) G.Descent.play(() => { S.seenOpening = true; G.Save.save(); go(); });
     else G.Game.play(n);

@@ -19,6 +19,8 @@ G.Floor = (function () {
     st.n = n; st.def = G.Floors[n];
     G.Mobs.setPower(st.def.power);
     G.Boss.load(st.def.boss);
+    // 몹 구간이 없는 층(path 없음)은 바로 보스전
+    if (!st.def.path) { startBoss(player); return; }
     G.MobSprite.preload([...new Set(st.def.path.zones.flatMap(z => z.mobs.map(g => g.type)))]);   // 몹 그림 미리 불러 두기
     startPath(player);
   }
@@ -35,12 +37,27 @@ G.Floor = (function () {
     showUI();
   }
   // short: 다시 도전할 때는 짧은 등장 연출 (이름 카드만)
+  // 보스에 시네마틱 영상(cine)이 있고 아직 안 봤으면: 영상 → 이름 카드 → 전투
   function startBoss(player, short) {
     G.Mobs.clear();
     G.Stage.setLayout(900, st.def.bossPillars);     // 보스방: 한 화면짜리 전투장
     st.phase = 'intro'; st.t = 0; st.locked = false; st.banner = null;
     G.Boss.reset();
     if (player) { player.x = 220; player.z = 95; player.vx = player.vz = 0; player.facing = 1; }
+    const D = G.Boss.def, seen = G.Save.data.seenCine || (G.Save.data.seenCine = {});
+    if (!short && D.cine && !seen[st.def.boss] && G.Game && G.Game.mode === 'play') {   // 로비 뒤 화면을 준비할 때는 안 나옴
+      st.phase = 'cine';
+      G.Sound.bgm(null);
+      G.Boss.state.mode = 'intro';                                // 영상이 끝날 때까지 보스는 공격하지 않음
+      G.Cine.play(D.cine, () => {
+        seen[st.def.boss] = true; G.Save.save();
+        st.phase = 'intro';
+        G.BossIntro.start(true);                                  // 영상에서 깨어나는 장면을 봤으니 이름 카드만
+        G.Sound.bgm('boss');
+      });
+      showUI();
+      return;
+    }
     G.BossIntro.start(!!short);
     G.Sound.bgm('boss');
     showUI();
@@ -219,9 +236,9 @@ G.Floor = (function () {
     }
   }
 
-  function isBoss() { return st.phase === 'intro' || st.phase === 'boss' || st.phase === 'clear'; }
+  function isBoss() { return st.phase === 'cine' || st.phase === 'intro' || st.phase === 'boss' || st.phase === 'clear'; }
   // 연출 중: 조작 막음 (main.js)
-  function cutscene() { return st.phase === 'intro' || st.phase === 'enter'; }
+  function cutscene() { return st.phase === 'cine' || st.phase === 'intro' || st.phase === 'enter'; }
   function cleared() { st.phase = 'clear'; }
 
   return { state: st, start, retry, update, drawGate, drawOverlay, isBoss, cleared, cutscene, GATE };

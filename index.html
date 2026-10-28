@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b0a10">
   <title>천공탑 — 홀로 오르는 자</title>
-  <link rel="stylesheet" href="css/style.css?v=48">
+  <link rel="stylesheet" href="css/style.css?v=49">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -44,7 +44,7 @@
     <h1>천공탑</h1>
     <p class="sub">홀로 오르는 자</p>
     <p class="tap">화면을 터치해서 시작</p>
-    <p class="ver">개발 버전 · v48</p>
+    <p class="ver">개발 버전 · v49</p>
   </div>
 
   <!-- 로비 (탑 입구) -->
@@ -105,6 +105,13 @@
     <div class="btns"><button type="button" class="b1"></button><button type="button" class="b2 ghost"></button></div>
   </div>
 
+  <!-- 보스전 전 시네마틱 영상 (cine.js) -->
+  <div id="cine" class="hidden">
+    <video playsinline webkit-playsinline preload="none"></video>
+    <div class="cine-sub"><small></small><span></span></div>
+    <div class="cine-skip">화면을 누르면 건너뛰기</div>
+  </div>
+
   <!-- 세로 화면 안내 -->
   <div id="rotate">
     <div class="phone"></div>
@@ -113,28 +120,29 @@
 
   <!-- 순서 중요: 위에 있는 파일을 아래 파일이 사용함 -->
   <!-- ?v= 숫자: 업데이트할 때마다 올리기 (config.js의 G.VERSION과 같은 숫자) -->
-  <script src="js/config.js?v=48"></script>
-  <script src="js/save.js?v=48"></script>
-  <script src="js/sound.js?v=48"></script>
-  <script src="js/items.js?v=48"></script>
-  <script src="js/input.js?v=48"></script>
-  <script src="js/rig.js?v=48"></script>
-  <script src="js/render.js?v=48"></script>
-  <script src="js/stage.js?v=48"></script>
-  <script src="js/effects.js?v=48"></script>
-  <script src="js/combat.js?v=48"></script>
-  <script src="js/player.js?v=48"></script>
-  <script src="js/bosses.js?v=48"></script>
-  <script src="js/bossfx.js?v=48"></script>
-  <script src="js/boss.js?v=48"></script>
-  <script src="js/floors.js?v=48"></script>
-  <script src="js/mobsprite.js?v=48"></script>
-  <script src="js/mobs.js?v=48"></script>
-  <script src="js/intro.js?v=48"></script>
-  <script src="js/floor.js?v=48"></script>
-  <script src="js/hero3d.js?v=48"></script>
-  <script src="js/descent.js?v=48"></script>
-  <script src="js/lobby.js?v=48"></script>
-  <script src="js/main.js?v=48"></script>
+  <script src="js/config.js?v=49"></script>
+  <script src="js/save.js?v=49"></script>
+  <script src="js/sound.js?v=49"></script>
+  <script src="js/items.js?v=49"></script>
+  <script src="js/input.js?v=49"></script>
+  <script src="js/rig.js?v=49"></script>
+  <script src="js/render.js?v=49"></script>
+  <script src="js/stage.js?v=49"></script>
+  <script src="js/effects.js?v=49"></script>
+  <script src="js/combat.js?v=49"></script>
+  <script src="js/player.js?v=49"></script>
+  <script src="js/bosses.js?v=49"></script>
+  <script src="js/bossfx.js?v=49"></script>
+  <script src="js/boss.js?v=49"></script>
+  <script src="js/floors.js?v=49"></script>
+  <script src="js/mobsprite.js?v=49"></script>
+  <script src="js/mobs.js?v=49"></script>
+  <script src="js/intro.js?v=49"></script>
+  <script src="js/cine.js?v=49"></script>
+  <script src="js/floor.js?v=49"></script>
+  <script src="js/hero3d.js?v=49"></script>
+  <script src="js/descent.js?v=49"></script>
+  <script src="js/lobby.js?v=49"></script>
+  <script src="js/main.js?v=49"></script>
 </body>
 </html>

@@ -29,9 +29,8 @@
     // 층 도전 시작 (로비의 "탑 오르기", 결과 화면의 "다음 층")
     play(n) {
       Object.assign(player, G.Player.create(START.x, START.z));
-      G.Floor.start(n, player);
       G.Game.mode = 'play'; runTime = 0;
-      G.Sound.bgm('path');
+      G.Floor.start(n, player);               // 배경음은 층이 정함 (몹 구간 = path, 바로 보스전 = boss)
       G.Lobby.hide();
       result.classList.add('hidden'); pauseEl.classList.add('hidden');
       updateCamera(0, true);
@@ -58,15 +57,20 @@
       const nextN = Object.keys(G.Floors).map(Number).sort((a, b) => a - b).find(f => f > n);   // 다음으로 만들어진 층 (빈 층은 건너뜀)
       const next = nextN && G.Floors[nextN];
       const rec = `기록 ${Math.floor(runTime / 60)}:${String(Math.floor(runTime % 60)).padStart(2, '0')}${first ? '' : ''}`;
-      show(`${n}층 클리어`, `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · ${rec}${next ? '' : ' · 다음 층은 준비 중'}`,
+      const L = G.Boss.def.lines, said = L && L.win ? `"${L.win}" · ` : `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · `;   // 보스의 마지막 말
+      show(`${n}층 클리어`, `${said}${rec}${next ? '' : ' · 다음 층은 준비 중'}`,
         next ? [`${nextN}층 ▶`, () => G.Game.play(nextN)] : ['로비로', () => G.Game.toLobby()],
         next ? ['로비로', () => G.Game.toLobby()] : null);
     },
     lose() {
-      G.Save.addDeath();
+      const fails = G.Save.addDeath(G.Floor.state.n);
       G.Sound.bgm(null); setTimeout(() => G.Sound.play('lose'), 700);
       result.querySelector('.reward').classList.add('hidden');
-      setTimeout(() => show('패배', '쓰러졌습니다', ['다시 도전', () => G.Game.restart()], ['로비로', () => G.Game.toLobby()]), 900);
+      // 보스전에서 졌으면 보스가 한마디 (진 횟수에 맞는 대사)
+      let msg = '쓰러졌습니다';
+      const L = G.Floor.isBoss() && G.Boss.def.lines && G.Boss.def.lines.lose;
+      if (L) { const k = Object.keys(L).map(Number).filter(c => c <= fails).sort((a, b) => b - a)[0]; if (k) msg = `"${L[k]}" — ${G.Boss.def.name}`; }
+      setTimeout(() => show('패배', msg, ['다시 도전', () => G.Game.restart()], ['로비로', () => G.Game.toLobby()]), 900);
     },
     updateHUD() {
       hpFill.style.width = (player.hp / CFG.player.maxHp * 100) + '%';
