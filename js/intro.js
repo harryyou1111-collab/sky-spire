@@ -27,9 +27,11 @@ G.BossIntro = (function () {
   const span = (t, [a, b]) => ease((t - a) / (b - a));
 
   function start(short) {
-    Object.assign(it, { on: true, t: 0, short, T: short ? SHORT : FULL, roared: false, skipped: false, carded: false });
-    document.body.classList.add('cine');
     const B = G.Boss, D = B.def, rise = (D.intro && D.intro.rise) || 'riseclip';
+    // 보스마다 시간표를 다르게 할 수 있음 (bosses.js의 intro.full)
+    const T = short ? SHORT : Object.assign({}, FULL, (D.intro && D.intro.full) || {});
+    Object.assign(it, { on: true, t: 0, short, T, roared: false, skipped: false, carded: false });
+    document.body.classList.add('cine');
     B.state.mode = 'intro';
     if (!short && D.poses[rise]) { B.setPose(rise, false, 0, 0); B.state.prev = null; B.state.cur.frame = 0; }
     B.state.introGlow = 0;
@@ -68,8 +70,9 @@ G.BossIntro = (function () {
         G.Sound.play('roar');
         G.FX.shake(14, 0.7);
         G.BFX.flash(D.baseX, D.baseZ, 160, 420, D.theme.moon, 0.5);
-        G.BFX.dust(D.baseX - 200, 40, 8, 1.2, '90, 80, 60'); G.BFX.dust(D.baseX + 200, 40, 8, 1.2, '90, 80, 60');
-        G.BFX.leaves(D.baseX, 30, 60, 10);
+        const dc = D.theme.dust || '90, 80, 60';
+        G.BFX.dust(D.baseX - 200, 40, 8, 1.2, dc); G.BFX.dust(D.baseX + 200, 40, 8, 1.2, dc);
+        if (D.theme.leaves !== false) G.BFX.leaves(D.baseX, 30, 60, 10);
       }
       // 눈·입 빛: 포효 순간 확 밝아졌다가 서서히 꺼짐
       B.state.introGlow = it.t < T.roar - 0.4 ? 0 : it.t < T.roar ? (it.t - (T.roar - 0.4)) / 0.4 * 0.6 : Math.max(0, 1.3 - (it.t - T.roar) * 0.9);

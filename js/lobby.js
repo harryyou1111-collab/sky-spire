@@ -20,8 +20,10 @@ G.Lobby = (function () {
   const floors = () => Object.keys(G.Floors).map(Number).sort((a, b) => a - b);
   const maxBuilt = () => Math.max(...floors());
   const bossOf = n => G.BossDefs[G.Floors[n].boss];
-  // 고를 수 있는 층: 1층 ~ (깬 최고층 + 1), 단 만들어진 층까지만
-  const maxSel = () => Math.min(G.Save.data.best + 1, maxBuilt());
+  // 고를 수 있는 층: 만들어진 층 중 깬 최고층 바로 다음 층까지 (아직 없는 층은 건너뜀)
+  const maxSel = () => floors().find(n => n > G.Save.data.best) || maxBuilt();
+  // 만들어진 층 목록에서 앞·뒤 층
+  const step = (n, d) => { const L = floors().filter(f => f <= maxSel()), i = L.indexOf(n); return L[Math.max(0, Math.min(L.length - 1, i + d))] || n; };
 
   let shownAt = 0;
   function show() {
@@ -50,7 +52,7 @@ G.Lobby = (function () {
     if (sel === maxBuilt() && S.best >= maxBuilt()) note += ' · 다음 층은 준비 중';
     $('#lb-note').textContent = note;
     $('#lb-go').textContent = c ? '다시 오르기' : '탑 오르기';
-    el.querySelector('[data-floor="-1"]').classList.toggle('off', sel <= 1);
+    el.querySelector('[data-floor="-1"]').classList.toggle('off', sel <= floors()[0]);
     el.querySelector('[data-floor="1"]').classList.toggle('off', sel >= maxSel());
     $('#lb-best').textContent = S.best ? `최고 ${S.best}F` : '아직 깬 층 없음';
   }
@@ -169,7 +171,7 @@ G.Lobby = (function () {
     G.Sound.play('ui');
     if (t.dataset.open === 'equip') openEquip();
     else if (t.dataset.open) openPanel(t.dataset.open);
-    else if (t.dataset.floor) { sel = Math.max(1, Math.min(maxSel(), sel + Number(t.dataset.floor))); refresh(); }
+    else if (t.dataset.floor) { sel = step(sel, Number(t.dataset.floor)); refresh(); }
     else if (t.classList.contains('lb-close')) closePanel();
     else if (t.id === 'lb-go') climb();
   });

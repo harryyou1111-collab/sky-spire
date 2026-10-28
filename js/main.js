@@ -55,10 +55,11 @@
       G.Sound.bgm(null); G.Sound.play('win');
       if (got) setTimeout(() => G.Sound.play('reward'), 900);
       if (got) { rwEl.querySelector('img').src = got.icon + '?v=' + G.VERSION; rwEl.querySelector('b').textContent = got.name; }
-      const next = G.Floors[n + 1];
+      const nextN = Object.keys(G.Floors).map(Number).sort((a, b) => a - b).find(f => f > n);   // 다음으로 만들어진 층 (빈 층은 건너뜀)
+      const next = nextN && G.Floors[nextN];
       const rec = `기록 ${Math.floor(runTime / 60)}:${String(Math.floor(runTime % 60)).padStart(2, '0')}${first ? '' : ''}`;
       show(`${n}층 클리어`, `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · ${rec}${next ? '' : ' · 다음 층은 준비 중'}`,
-        next ? ['다음 층 ▶', () => G.Game.play(n + 1)] : ['로비로', () => G.Game.toLobby()],
+        next ? [`${nextN}층 ▶`, () => G.Game.play(nextN)] : ['로비로', () => G.Game.toLobby()],
         next ? ['로비로', () => G.Game.toLobby()] : null);
     },
     lose() {

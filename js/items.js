@@ -10,7 +10,7 @@
 // =====================================================================
 G.Items = {
   pan_hornblade: {
-    name: '판의 뿔검', slot: 'weapon', from: '1F 판',
+    name: '판의 뿔검', slot: 'weapon', from: '8F 판',
     icon: 'assets/items/pan_hornblade_icon.webp',
     desc: '숲과 공포의 신이 쥐던 검. 칼날에 감긴 덩굴이 아직 살아 있다.',
     atk: 3,

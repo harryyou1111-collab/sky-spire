@@ -10,10 +10,107 @@
 G.BossDefs = {
 
   // ------------------------------------------------------------------
-  // 1층 — 판: 숲과 야생, 공포(panic)의 신. 염소 뿔과 귀, 수염
+  // 1층 — 탑의 문지기: 첫 번째 문을 지키는 돌 골렘. 처음 오르는 자를 위한 연습 상대
+  //   내려찍기(판과 같은 코드, 더 느리고 약하게)와 낙석 두 가지만 씀
+  // ------------------------------------------------------------------
+  golem: {
+    floor: 1,
+    name: '탑의 문지기',
+    title: '첫 번째 문을 지키는 자',
+    hp: 260,
+
+    // 영상 3개(내려찍기·두 주먹·깨어나기)를 모두 같은 크기·기준점으로 맞춰 둠 → 위치 정보가 다 같음
+    poseScale: 0.55,     // 장면 1픽셀 = 게임 몇 단위 (쉬는 자세 너비 600픽셀 ≈ 330)
+    baseX: 450,
+    baseZ: 6,
+    handHit: { w: 90, h: 70 },
+    mist: 46,
+    mistWidth: 360,
+    roarGlow: { eyes: [[294, 146], [329, 146]] },  // 두 눈 (입 없음)
+    intro: {
+      rise: 'wakeclip',  // 등장 연출: 석상처럼 잠든 자세에서 깨어남
+      // 깨어나는 영상이 길어서 시간표를 늘림 (intro.js의 FULL을 덮어씀)
+      full: { pan: [0.4, 1.4], rise: [0.5, 3.3], roar: 3.4, card: [3.65, 5.6], back: [5.0, 5.8], end: 5.9 },
+    },
+    poses: {
+      idle:      { clip: 'slam', frame: 0 },
+      slamclip:  { clip: 'slam' },
+      poundclip: { clip: 'pound' },
+      wakeclip:  { clip: 'wake' },
+    },
+    clips: {
+      // 내려찍기: 화면 왼쪽 팔을 치켜들어 앞쪽 땅을 내리침 → 주먹이 박혀 있음 → 복귀 (Kling)
+      slam: {
+        sheets: [0, 1, 2, 3].map(i => `assets/bosses/golem/slam_${i}.webp`),
+        fw: 620, fh: 484, cols: 4, per: 16, cx: 310, bottom: 475, hand: [215, 455],
+        seg: { raise: [1, 12], drop: [12, 23], stuck: [23, 37], recover: [37, 54] },
+      },
+      // 두 주먹: 양 주먹을 들어 동시에 땅을 침 → 처음 자세로 (Vidu)
+      pound: {
+        sheets: [0, 1, 2, 3].map(i => `assets/bosses/golem/pound_${i}.webp`),
+        fw: 620, fh: 484, cols: 4, per: 16, cx: 310, bottom: 475,
+        hands: [[115, 470], [505, 470]],
+        seg: { raise: [0, 20], drop: [20, 34], settle: [34, 54] },
+      },
+      // 깨어나기: 고개를 숙인 석상 → 고개를 들고 룬과 눈에 불이 켜짐 (Kling, 마지막 장면 = 쉬는 자세)
+      wake: {
+        sheets: [0, 1].map(i => `assets/bosses/golem/wake_${i}.webp`),
+        fw: 620, fh: 484, cols: 4, per: 16, cx: 310, bottom: 475,
+        seg: { up: [0, 31] },
+      },
+    },
+
+    theme: {
+      bg: 'assets/bosses/golem/bg.jpg',        // 탑 1층 대전당 (가운데 큰 문)
+      horizon: 0.62,
+      sky: ['#0d1420', '#2a3d5c', '#101722'],
+      moon: '170, 210, 255',                   // 보스 뒤 기운·안개 빛
+      glow: '120, 200, 255',                   // 눈 빛 (없으면 초록)
+      crack: ['110, 190, 255', '160, 215, 255'],   // 갈라진 땅 빛 (없으면 초록)
+      leaves: false,                           // 등장 연출 때 잎을 흩날리지 않음
+      dust: '120, 120, 125',                   // 등장 연출 먼지 색
+      silhouette: 'none',
+      ground: { far: '#15181d', near: '#2a2e35', line: '#3c424b', front: '#0d0f12', wall: '#07080a',
+                side: ['#22262d', '#3a3f48', '#1d2026'], top: '#4c525c', rim: '#7d8796' },
+    },
+
+    patterns: {
+      // 내려찍기: 판과 같음. 처음 오르는 사람이 익히도록 예고가 길고, 주먹이 오래 박혀 있음
+      slam: {
+        weight: 2,
+        telegraph: 1.25, track: 0.6, drop: 0.28, stuck: 2.2, recover: 1.0, rest: 1.3,
+        dmg: 18, radius: 64, width: 46, reach: 900,
+      },
+      // 낙석: 두 주먹으로 땅을 치면 천장에서 돌이 떨어짐 → 바닥의 붉은 원(돌 그림자)을 피하기
+      //   하나는 항상 플레이어 자리에 떨어짐. waves: 몇 번에 나눠 떨어지는지
+      quake: {
+        weight: 1,
+        telegraph: 1.3,    // 두 주먹을 드는 시간
+        drop: 0.5,         // 내려치는 시간
+        settle: 1.4,       // 처음 자세로 돌아가는 시간 (영상)
+        rocks: 6,          // 한 번에 떨어지는 돌 수
+        fall: 1.1,         // 붉은 원이 생기고 돌이 땅에 닿기까지
+        radius: 38,        // 돌 크기 (이 안에 있으면 맞음)
+        waves: 1, waveGap: 0.8,
+        shock: 60, shockDmg: 12,   // 주먹 바로 앞 충격 (가까이 붙어 있으면 맞음)
+        dmg: 16,
+        rest: 1.2,
+      },
+    },
+
+    // 체력 50% 이하: 더 빨라지고, 내려찍기 연속 2번, 낙석이 두 번에 나눠 떨어짐
+    phase2: {
+      at: 0.5,
+      slam:  { telegraph: 1.0, stuck: 1.6, recover: 0.85, rest: 0.8, double: true },
+      quake: { rocks: 7, waves: 2, fall: 0.95, rest: 0.8 },
+    },
+  },
+
+  // ------------------------------------------------------------------
+  // 8층 — 판: 숲과 야생, 공포(panic)의 신. 염소 뿔과 귀, 수염 (처음엔 1층 보스였음)
   // ------------------------------------------------------------------
   pan: {
-    floor: 1,
+    floor: 8,
     name: '판',
     reward: { equip: 'pan_hornblade' },   // 처음 쓰러뜨리면 받는 보상 (items.js). 스킬을 주는 보스는 { skill: 'id' }
     title: '숲과 공포의 신',
