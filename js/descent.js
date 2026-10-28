@@ -2,9 +2,9 @@
 // descent.js — 오프닝: 탑 꼭대기에서 입구까지 카메라가 내려오는 장면
 //
 // 처음 탑에 오를 때 한 번 나옴 (설정에서 다시 보기 가능). 화면을 누르면 건너뜀
-// 그림 한 장(assets/world/tower.jpg, 세로로 긴 탑 전체)을 코드로 움직임 (약 19초):
+// 그림 한 장(assets/world/tower.jpg, 세로로 긴 탑 전체)을 코드로 움직임 (약 25초):
 //   꼭대기 빛에서 천천히 → 점점 빨라지며 구름을 뚫고 내려감 → 입구 문 앞에서 멈춤 → 문으로 다가감(룬이 빛남)
-//   → "천공탑" 제목 → 하얗게 번쩍 → 1층
+//   → 주인공의 한마디 (목소리) → "천공탑" 제목 → 하얗게 번쩍 → 1층
 // 문장(LINES)과 카메라 위치(CAM)는 아래 표만 고치면 됨
 // 그림 속 위치는 TOWER의 비율(0~1)로 지정 → 그림을 바꾸면 이 숫자만 맞추면 됨
 // =====================================================================
@@ -17,18 +17,20 @@ G.Descent = (function () {
   // 카메라: [시간(초), 내려온 정도(0 = 꼭대기, 1 = 맨 아래)]. 사이는 부드럽게 이어짐 (멈칫거리지 않게)
   const CAM = [[0, 0], [2.6, 0.02], [5.6, 0.2], [8.6, 0.55], [11.4, 0.93], [12.6, 1]];
   // 시간표 (초): 문으로 다가감, 하얗게 번쩍, 끝
-  const T = { push: [12.2, 14.6], flash: [18.0, 18.6], end: 19.0 };
-  // 화면 글자: [시작, 끝, 글자, 종류]  종류 title = 큰 제목, line = 이야기 문장
+  const T = { push: [12.2, 14.6], flash: [24.4, 25.0], end: 25.4 };
+  // 화면 글자: [시작, 끝, 글자, 종류]  종류 title = 큰 제목, line = 이야기 문장, voice = 주인공의 말 (목소리와 함께)
   const LINES = [
     [0.6, 3.4, '하늘을 꿰뚫고 솟은 탑이 있다', 'line'],
     [3.8, 6.4, '백 개의 층, 백 개의 세계', 'line'],
     [6.8, 9.4, '층마다 신과 괴수가 다음 문을 지킨다', 'line'],
     [9.8, 12.4, '수많은 이들이 올랐으나, 꼭대기에 닿은 자는 없다', 'line'],
     [12.8, 14.6, '그리고 오늘, 한 사람이 홀로 문 앞에 섰다', 'line'],
-    [14.4, 18.1, '천공탑', 'title'],   // 제목은 길게 머문 뒤 빛
+    [14.9, 21.0, '나는 올라간다. 막아서는 게 신이든 괴물이든, 쓰러뜨리고 지나갈 뿐이야.', 'voice'],
+    [20.8, 24.5, '천공탑', 'title'],   // 제목은 길게 머문 뒤 빛
   ];
+  const VOICE = [14.9, 'assets/story/voice/hero_climb.mp3'];   // 주인공 목소리 (ElevenLabs, Wyman)
 
-  const SFX = [[5.2, 'whoosh', { vol: 0.7 }], [8.2, 'whoosh', { vol: 0.9, rate: 1.15 }], [12.2, 'gate'], [14.4, 'banner'], [18.0, 'smash', { vol: 0.5, rate: 1.4 }]];
+  const SFX = [[5.2, 'whoosh', { vol: 0.7 }], [8.2, 'whoosh', { vol: 0.9, rate: 1.15 }], [12.2, 'gate'], [20.8, 'banner'], [24.4, 'smash', { vol: 0.5, rate: 1.4 }]];
   const cv = document.createElement('canvas');
   cv.id = 'descent';
   cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:14;display:none;touch-action:none';
@@ -55,6 +57,7 @@ G.Descent = (function () {
     if (!img.src) img.src = TOWER.src + '?v=' + (G.VERSION || 0);
     run = { t: 0, done, last: performance.now(), prevCy: null, clouds: [], lines: [], snd: {} };
     G.Sound.bgm('opening');
+    G.Sound.preloadVoice(VOICE[1]);
     for (let i = 0; i < 9; i++) run.clouds.push({ x: Math.random(), y: Math.random() * 3, r: 0.35 + Math.random() * 0.45, a: 0.35 + Math.random() * 0.35 });
     for (let i = 0; i < 40; i++) run.lines.push({ x: Math.random(), y: Math.random(), l: 0.05 + Math.random() * 0.15 });
     cv.style.display = 'block';
@@ -64,11 +67,12 @@ G.Descent = (function () {
     if (!run) return;
     const d = run.done; run = null;
     cv.style.display = 'none';
+    G.Sound.voice(null);
     if (!d) G.Sound.bgm('lobby');
     if (d) d();
   }
   // 누르면 건너뜀 (번쩍 장면으로)
-  cv.addEventListener('pointerdown', () => { if (run && run.t < T.flash[0]) run.t = T.flash[0]; });
+  cv.addEventListener('pointerdown', () => { if (run && run.t < T.flash[0]) { run.t = T.flash[0]; G.Sound.voice(null); run.snd.voice = 1; } });
 
   function frame(now) {
     if (!run) return;
@@ -77,6 +81,7 @@ G.Descent = (function () {
     const t = run.t;
     // 효과음: [시간, 소리]
     for (const [at, name, o] of SFX) if (t >= at && !run.snd[at]) { run.snd[at] = 1; if (t < at + 0.5) G.Sound.play(name, o); }
+    if (t >= VOICE[0] && !run.snd.voice) { run.snd.voice = 1; G.Sound.voice(VOICE[1]); }
     const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
     if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -163,6 +168,14 @@ G.Descent = (function () {
         ctx.fillText('천 공 탑', 0, 0);
         ctx.font = '600 13px sans-serif'; ctx.fillStyle = '#e8e2d4';
         ctx.fillText('홀 로   오 르 는   자', 0, 40);
+      } else if (kind === 'voice') {
+        // 주인공의 말: 문 앞에서 금빛 글자로 (이야기 문장과 구분)
+        const y0 = H * 0.6, bg = ctx.createLinearGradient(0, y0, 0, H);
+        bg.addColorStop(0, 'rgba(0,0,0,0)'); bg.addColorStop(1, 'rgba(0,0,0,.75)');
+        ctx.save(); ctx.shadowBlur = 0; ctx.fillStyle = bg; ctx.fillRect(0, y0, W, H - y0); ctx.restore();
+        ctx.fillStyle = '#f1d590';
+        ctx.font = `600 ${Math.min(17, W / 44)}px serif`;
+        ctx.fillText(`“${text}”`, W / 2, H - H * 0.1 - 34 + (1 - k) * 8);
       } else {
         // 이야기 문장: 화면 아래쪽, 살짝 떠오르며 나타남 (밝은 구름 위에서도 보이게 뒤를 어둡게)
         const y0 = H * 0.62, bg = ctx.createLinearGradient(0, y0, 0, H);

@@ -27,15 +27,19 @@ G.BossDefs = {
     mist: 46,
     mistWidth: 360,
     roarGlow: { eyes: [[294, 146], [329, 146]] },  // 두 눈 (입 없음)
-    // 처음 만날 때 나오는 시네마틱 영상 (cine.js). 자막: [시작초, 끝초, 말하는 이, 대사]
-    cine: {
-      src: 'assets/bosses/golem/cine.mp4',     // Dreamina 영상 2개를 이어 붙임 (15초)
+    // 처음 만날 때 나오는 대화 장면 (talk.js). voice: ElevenLabs 목소리 파일을 넣으면 재생
+    talk: {
+      bg: 'assets/bosses/golem/bg.jpg',
+      cast: {
+        golem: { name: '탑의 문지기', side: 'back', faces: { sleep: 'assets/story/golem_sleep.webp', awake: 'assets/story/golem_awake.webp' } },
+        hero:  { name: '홀로 오르는 자', side: 'right', faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
       lines: [
-        [1.2, 4.4, '탑의 문지기', '…오랜만이군. 발소리가 들린 것은.'],
-        [4.8, 7.6, '탑의 문지기', '이 탑을 오르려는 자여.'],
-        [7.9, 11.0, '탑의 문지기', '첫 번째 문은, 나를 쓰러뜨린 자에게만 열린다.'],
-        [11.4, 13.1, '', '…그럼 쓰러뜨리면 되겠군.'],
-        [13.3, 15.3, '탑의 문지기', '증명해 보아라.'],
+        { who: 'golem', face: 'sleep', text: '…오랜만이군. 발소리가 들린 것은.', voice: 'assets/story/voice/golem_01.mp3' },
+        { who: 'golem', face: 'awake', text: '이 탑을 오르려는 자여.', flash: true, shake: true, voice: 'assets/story/voice/golem_02.mp3', voiceDelay: 0.3 },
+        { who: 'golem', text: '첫 번째 문은, 나를 쓰러뜨린 자에게만 열린다.', voice: 'assets/story/voice/golem_03.mp3' },
+        { who: 'hero', face: 'serious', text: '…그럼 쓰러뜨리면 되겠군.', voice: 'assets/story/voice/hero_04.mp3' },
+        { who: 'golem', text: '증명해 보아라.', shake: true, sfx: 'smash', voice: 'assets/story/voice/golem_05.mp3', voiceDelay: 0.35 },
       ],
     },
     // 질 때마다 하는 말 (이 층에서 진 횟수 → 대사. 사이 횟수는 바로 앞 대사) / 쓰러졌을 때 하는 말
