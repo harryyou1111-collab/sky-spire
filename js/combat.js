@@ -44,6 +44,12 @@ G.Combat = (function () {
   function hurtPlayer(p, dmg, fromX, fromZ) {
     const c = G.CFG.player;
     if (p.dead || p.iframe > 0) return false;
+    if (p.stone > 0) {                       // 석화 스킬: 돌이 된 동안은 아무 피해도 안 받음
+      G.Sound.play('hit', { rate: 1.5, vol: 0.5 });
+      G.FX.spark(p.x, S().screenY(p.z, p.h + 60), p.x > fromX ? 1 : -1, 0.6);
+      if (!p.stoneTxt || p.stoneTxt < performance.now()) { G.FX.text(p.x, S().screenY(p.z, p.h + 130), '막음', '#bfe3ff'); p.stoneTxt = performance.now() + 400; }
+      return false;
+    }
     p.hp = Math.max(0, p.hp - dmg);
     p.atk = null; p.dash = null;
     if (p.drink > 0) { p.drink = 0; G.FX.text(p.x, S().screenY(p.z, p.h + 150), '포션 놓침', '#ff8a7a'); }

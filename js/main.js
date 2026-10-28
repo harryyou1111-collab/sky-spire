@@ -30,6 +30,7 @@
     play(n) {
       Object.assign(player, G.Player.create(START.x, START.z));
       G.Game.mode = 'play'; runTime = 0;
+      G.Skill.reset();                        // 층을 새로 시작하면 스킬 쿨타임 초기화
       G.Floor.start(n, player);               // 배경음은 층이 정함 (몹 구간 = path, 바로 보스전 = boss)
       G.Lobby.hide();
       result.classList.add('hidden'); pauseEl.classList.add('hidden');
@@ -47,17 +48,30 @@
       const n = G.Floor.state.n;
       G.Floor.cleared();
       const first = G.Save.clearFloor(n, runTime);
+      // 처음 깼고 보스에게 쓰러진 뒤 대화(talkWin)가 있으면: 대화 → 결과 화면
+      const TW = G.Boss.def.talkWin, RW = G.Boss.def.reward;
+      const newReward = RW && ((RW.skill && !G.Save.data.owned.skills.includes(RW.skill)) || (RW.equip && !G.Save.data.owned.equip.includes(RW.equip)));
+      if ((first || newReward) && TW) { G.Sound.bgm(null); G.Talk.play(TW, () => G.Game.showWin(n, first, true)); }
+      else G.Game.showWin(n, first, false);
+    },
+    // 결과 화면 (talked: 방금 대화로 보스의 마지막 말을 들었으면 화면 글자에서는 뺌)
+    showWin(n, first, talked) {
       // 보스 보상: 처음 얻는 장비면 결과 화면에 보여 줌
-      const rw = G.Boss.def.reward, got = rw && rw.equip ? G.Equip.grant(rw.equip) : null;
+      const rw = G.Boss.def.reward, got = rw && rw.equip ? G.Equip.grant(rw.equip) : rw && rw.skill ? G.Skill.grant(rw.skill) : null;
       const rwEl = result.querySelector('.reward');
       rwEl.classList.toggle('hidden', !got);
+      if (got) {   // 장비 / 스킬에 따라 안내 문구
+        const isSkill = !!(rw && rw.skill);
+        rwEl.querySelector('small').textContent = isSkill ? '새 스킬 획득' : '새 장비 획득';
+        rwEl.querySelector('span').textContent = isSkill ? (G.Save.data.skills.includes(rw.skill) ? '스킬 칸에 바로 장착했어요 · 오른쪽 위 버튼으로 사용' : '로비의 스킬 탭에서 장착할 수 있어요') : '로비의 장비 탭에서 장착할 수 있어요';
+      }
       G.Sound.bgm(null); G.Sound.play('win');
       if (got) setTimeout(() => G.Sound.play('reward'), 900);
       if (got) { rwEl.querySelector('img').src = got.icon + '?v=' + G.VERSION; rwEl.querySelector('b').textContent = got.name; }
       const nextN = Object.keys(G.Floors).map(Number).sort((a, b) => a - b).find(f => f > n);   // 다음으로 만들어진 층 (빈 층은 건너뜀)
       const next = nextN && G.Floors[nextN];
       const rec = `기록 ${Math.floor(runTime / 60)}:${String(Math.floor(runTime % 60)).padStart(2, '0')}${first ? '' : ''}`;
-      const L = G.Boss.def.lines, said = L && L.win ? `"${L.win}" · ` : `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · `;   // 보스의 마지막 말
+      const L = G.Boss.def.lines, said = L && L.win && !talked ? `"${L.win}" · ` : `${G.Boss.def.name}을(를) 쓰러뜨렸습니다 · `;   // 보스의 마지막 말
       show(`${n}층 클리어`, `${said}${rec}${next ? '' : ' · 다음 층은 준비 중'}`,
         next ? [`${nextN}층 ▶`, () => G.Game.play(nextN)] : ['로비로', () => G.Game.toLobby()],
         next ? ['로비로', () => G.Game.toLobby()] : null);
@@ -80,6 +94,7 @@
     // 다시 도전: 몹 구간에서 죽었으면 몹 구간부터, 보스전에서 죽었으면 보스전부터 (체력·포션은 가득)
     restart() {
       Object.assign(player, G.Player.create(START.x, START.z));
+      G.Skill.reset();
       G.Floor.retry(player);
       result.classList.add('hidden');
       G.Game.updateHUD();
@@ -249,6 +264,7 @@
       if (G.Floor.cutscene()) { acc = 0; G.Input.endStep(); }   // 연출 중에는 조작 막음
       while (acc >= CFG.STEP) {
         G.Player.step(player, CFG.STEP);
+        G.Skill.update(CFG.STEP);                // 스킬 쿨타임
         G.Input.endStep();
         acc -= CFG.STEP;
         if (fx.hitstop > 0) { acc = 0; break; }  // 이번 계산에서 맞혔으면 바로 멈춤

@@ -154,6 +154,7 @@ G.Player = (function () {
       dash: null, dashBuf: 0, dashCd: 0, airDashUsed: false, iframe: 0, ghostT: 0,
       hp: c.maxHp, hurt: 0, dead: false,
       potions: G.CFG.potion.count, drink: 0,
+      stone: 0,                              // 석화 스킬 남은 시간 (돌이 된 동안 무적, 못 움직임)
       state: 'idle', jumpAnim: 'jump',
       anim: new G.Rig.Animator(CLIPS),
       joints: null,
@@ -187,6 +188,22 @@ G.Player = (function () {
       p.vx = approach(p.vx, 0, f * dt); p.vz = approach(p.vz, 0, f * dt);
       p.vh = Math.max(p.vh - G.CFG.GRAVITY * dt, -G.CFG.MAX_FALL);
       p.onGround = G.Stage.move(p, dt);
+      return;
+    }
+
+    // 스킬 (skills.js): 버튼 1, 2
+    if (I.pressed.skill1) G.Skill.use(p, 0);
+    if (I.pressed.skill2) G.Skill.use(p, 1);
+    // 석화: 돌이 된 동안은 제자리에 굳음 (중력만)
+    if (p.stone > 0) {
+      p.stone -= dt;
+      p.vx = approach(p.vx, 0, c.decel * dt); p.vz = approach(p.vz, 0, c.decel * dt);
+      p.vh = Math.max(p.vh - G.CFG.GRAVITY * dt, -G.CFG.MAX_FALL);
+      p.onGround = G.Stage.move(p, dt);
+      if (p.stone <= 0) {                    // 돌이 깨지며 풀림
+        G.Sound.play('hit', { rate: 1.3, vol: 0.7 });
+        if (G.BFX) G.BFX.debris(p.x, p.z, 10, 0.6);
+      }
       return;
     }
 
@@ -449,7 +466,7 @@ G.Player = (function () {
     p.anim.update(dt, speed);
     p.joints = G.Rig.compute(SKELETON, p.anim.pose, p.onGround);
     p.sy = G.Stage.screenY(p.z, p.h);
-    if (G.Hero3D) G.Hero3D.update(dt, p);      // 3D 캐릭터 (불러온 경우에만)
+    if (G.Hero3D) G.Hero3D.update(p.stone > 0 ? 0 : dt, p);      // 3D 캐릭터 (불러온 경우에만). 석화 중엔 동작이 멈춤
 
     // 검 궤적: 타격 직전부터 휘두른 직후까지 기록 (화면 좌표)
     if (p.atk) {
@@ -488,9 +505,20 @@ G.Player = (function () {
     const blink = p.iframe > 0 && !p.dash && !p.dead && Math.floor(p.iframe / 0.07) % 2 === 0;
     ctx.save();
     if (blink) ctx.globalAlpha = 0.35;
+    // 석화: 회색 돌빛 (끝나기 직전엔 깜빡여서 풀리는 때를 알려 줌)
+    const stone = p.stone > 0 && !(p.stone < 0.45 && Math.floor(p.stone / 0.08) % 2 === 0);
+    if (stone && 'filter' in ctx) ctx.filter = 'grayscale(1) brightness(1.05) contrast(1.25) sepia(.15)';
     // 3D 캐릭터가 준비됐으면 그것을, 아니면 예전 도형 캐릭터를 그림
     if (!(G.Hero3D && G.Hero3D.draw(ctx, p.x, p.sy))) G.Render.drawRig(ctx, p.joints, SKIN, ORDER, p.x, p.sy, p.facing);
     ctx.restore();
+    if (p.stone > 0) {                       // 몸을 감싸는 푸른 룬 빛
+      const y = p.sy - 70, r = 46 + 4 * Math.sin(performance.now() / 90);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(p.x, y, 4, p.x, y, r * 1.4);
+      g.addColorStop(0, 'rgba(120, 200, 255, .22)'); g.addColorStop(1, 'rgba(120, 200, 255, 0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(p.x, y, r, r * 1.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.sy, p.facing);
   }
 

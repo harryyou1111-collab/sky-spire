@@ -17,7 +17,8 @@ G.BossDefs = {
     floor: 1,
     name: '탑의 문지기',
     title: '첫 번째 문을 지키는 자',
-    hp: 260,
+    reward: { skill: 'stone_skin' },   // 처음 쓰러뜨리면 스킬 '석화' (skills.js)
+    hp: 340,
 
     // 영상 3개(내려찍기·두 주먹·깨어나기)를 모두 같은 크기·기준점으로 맞춰 둠 → 위치 정보가 다 같음
     poseScale: 0.55,     // 장면 1픽셀 = 게임 몇 단위 (쉬는 자세 너비 600픽셀 ≈ 330)
@@ -40,6 +41,21 @@ G.BossDefs = {
         { who: 'golem', text: '첫 번째 문은, 나를 쓰러뜨린 자에게만 열린다.', voice: 'assets/story/voice/golem_03.mp3' },
         { who: 'hero', face: 'serious', text: '…그럼 쓰러뜨리면 되겠군.', voice: 'assets/story/voice/hero_04.mp3' },
         { who: 'golem', text: '증명해 보아라.', shake: true, sfx: 'smash', voice: 'assets/story/voice/golem_05.mp3', voiceDelay: 0.35 },
+      ],
+    },
+    // 처음 쓰러뜨렸을 때 대화 (talk.js) → 끝나면 결과 화면 (스킬 '석화' 획득). 4번째 대사 때 번쩍
+    talkWin: {
+      bg: 'assets/bosses/golem/bg.jpg',
+      cast: {
+        golem: { name: '탑의 문지기', side: 'back', faces: { sleep: 'assets/story/golem_sleep.webp', awake: 'assets/story/golem_awake.webp' } },
+        hero:  { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'golem', face: 'awake', text: '…훌륭하다.', voice: 'assets/story/voice/golem_w1.mp3' },
+        { who: 'golem', text: '수많은 자들이 이 문 앞에서 무릎을 꿇었다. 끝까지 일어선 자는, 네가 처음이군.', voice: 'assets/story/voice/golem_w2.mp3' },
+        { who: 'hero', face: 'tired', text: '이제 비켜줄 건가.', voice: 'assets/story/voice/hero_w3.mp3' },
+        { who: 'golem', text: '후후. 가져가라. 이 돌의 힘이 네 길을 지켜줄 것이다.', voice: 'assets/story/voice/golem_w4.mp3', flash: true },
+        { who: 'golem', face: 'sleep', text: '행운을 빌지, 홀로 오르는 자여. 위에서 기다리는 것들은, 나보다 가혹하다.', voice: 'assets/story/voice/golem_w5.mp3' },
       ],
     },
     // 질 때마다 하는 말 (이 층에서 진 횟수 → 대사. 사이 횟수는 바로 앞 대사) / 쓰러졌을 때 하는 말
@@ -95,34 +111,34 @@ G.BossDefs = {
     },
 
     patterns: {
-      // 내려찍기: 판과 같음. 처음 오르는 사람이 익히도록 예고가 길고, 주먹이 오래 박혀 있음
+      // 내려찍기: 판과 같은 패턴 (예고 줄을 보고 옆으로 피한 뒤, 박힌 주먹을 때리기)
       slam: {
         weight: 2,
-        telegraph: 1.25, track: 0.6, drop: 0.28, stuck: 2.2, recover: 1.0, rest: 1.3,
-        dmg: 18, radius: 64, width: 46, reach: 900,
+        telegraph: 1.0, track: 0.65, drop: 0.24, stuck: 1.6, recover: 0.85, rest: 0.9,
+        dmg: 22, radius: 64, width: 46, reach: 900,
       },
       // 낙석: 두 주먹으로 땅을 치면 천장에서 돌이 떨어짐 → 바닥의 붉은 원(돌 그림자)을 피하기
       //   하나는 항상 플레이어 자리에 떨어짐. waves: 몇 번에 나눠 떨어지는지
       quake: {
         weight: 1,
-        telegraph: 1.3,    // 두 주먹을 드는 시간
+        telegraph: 1.1,    // 두 주먹을 드는 시간
         drop: 0.5,         // 내려치는 시간
         settle: 1.4,       // 처음 자세로 돌아가는 시간 (영상)
-        rocks: 6,          // 한 번에 떨어지는 돌 수
-        fall: 1.1,         // 붉은 원이 생기고 돌이 땅에 닿기까지
-        radius: 38,        // 돌 크기 (이 안에 있으면 맞음)
+        rocks: 8,          // 한 번에 떨어지는 돌 수
+        fall: 0.95,        // 붉은 원이 생기고 돌이 땅에 닿기까지
+        radius: 52,        // 돌 크기 (이 안에 있으면 맞음)
         waves: 1, waveGap: 0.8,
         shock: 60, shockDmg: 12,   // 주먹 바로 앞 충격 (가까이 붙어 있으면 맞음)
-        dmg: 16,
-        rest: 1.2,
+        dmg: 20,
+        rest: 0.9,
       },
     },
 
     // 체력 50% 이하: 더 빨라지고, 내려찍기 연속 2번, 낙석이 두 번에 나눠 떨어짐
     phase2: {
       at: 0.5,
-      slam:  { telegraph: 1.0, stuck: 1.6, recover: 0.85, rest: 0.8, double: true },
-      quake: { rocks: 7, waves: 2, fall: 0.95, rest: 0.8 },
+      slam:  { telegraph: 0.8, stuck: 1.2, recover: 0.7, rest: 0.5, double: true },
+      quake: { rocks: 9, radius: 56, waves: 2, waveGap: 0.65, fall: 0.85, rest: 0.6 },
     },
   },
 

@@ -62,10 +62,16 @@ G.Lobby = (function () {
   const PANELS = {
     skills() {
       const S = G.Save.data;
-      const slot = (s, i) => `<div class="lb-slot${s ? ' on' : ''}"><i>${i + 1}</i><b>스킬 ${i + 1}</b><span>${s || '비어 있음'}</span></div>`;
+      const K = id => G.Skills[id];
+      const slot = (s, i) => `<div class="lb-slot${s ? ' on' : ''}"><i>${i + 1}</i><b>스킬 ${i + 1}</b>${s && K(s) ? `<img class="sk" src="${K(s).icon}?v=${G.VERSION}" alt=""><span>${K(s).name}</span>` : '<span>비어 있음</span>'}</div>`;
+      // 배운 스킬 목록: 누르면 장착 / 해제
+      const owned = S.owned.skills.filter(K).map(id => `<button type="button" class="lb-skill${S.skills.includes(id) ? ' on' : ''}" data-skill="${id}">
+          <img src="${K(id).icon}?v=${G.VERSION}" alt=""><div><b>${K(id).name}</b><small>${K(id).from} · 쿨타임 ${K(id).cooldown}초</small><span>${K(id).desc}</span></div>
+          <em>${S.skills.includes(id) ? '장착 중' : '장착'}</em></button>`).join('');
       return ['스킬', `
         <div class="lb-slots">${S.skills.map(slot).join('')}</div>
-        <p class="lb-hint">${S.owned.skills.length ? '' : '배운 스킬이 없어요. 스킬을 주는 보스를 쓰러뜨리면 배울 수 있어요.'}</p>`];
+        ${owned ? `<div class="lb-skills">${owned}</div>` : ''}
+        <p class="lb-hint">${S.owned.skills.length ? '배운 스킬을 누르면 장착하거나 뺄 수 있어요.' : '배운 스킬이 없어요. 스킬을 주는 보스를 쓰러뜨리면 배울 수 있어요.'}</p>`];
     },
     forge() { return ['강화', `<p class="lb-hint big">🔒 준비 중이에요</p>`]; },
     records() {
@@ -176,6 +182,7 @@ G.Lobby = (function () {
     else if (t.dataset.open) openPanel(t.dataset.open);
     else if (t.dataset.floor) { sel = step(sel, Number(t.dataset.floor)); refresh(); }
     else if (t.classList.contains('lb-close')) closePanel();
+    else if (t.dataset.skill) { G.Skill.toggle(t.dataset.skill); openPanel('skills'); }
     else if (t.id === 'lb-go') climb();
   });
   panel.addEventListener('click', e => { if (e.target === panel) closePanel(); });

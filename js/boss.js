@@ -297,11 +297,13 @@ G.Boss = (function () {
   }
   function dropRocks(p, player) {
     const W = G.CFG.ARENA_W, D = G.CFG.DEPTH, pts = [];
+    // 앞서 떨어지고 있는 돌 자리는 피함 → 앞 돌이 떨어진 자리가 다음 돌을 피할 곳이 됨
+    const busy = boss.rocks.filter(r => r.state === 'fall').map(r => ({ x: r.x, z: r.z }));
     if (player && !player.dead) pts.push({ x: player.x, z: player.z });
     let tries = 0;
-    while (pts.length < p.rocks && tries++ < 200) {
+    while (pts.length < p.rocks && tries++ < 300) {
       const x = 60 + Math.random() * (W - 120), z = 14 + Math.random() * (D - 20);
-      if (pts.every(q => Math.hypot(q.x - x, (q.z - z) * 2) > p.radius * 2.6)) pts.push({ x, z });   // 서로 겹치지 않게 (피할 틈이 있게)
+      if (pts.concat(busy).every(q => Math.hypot(q.x - x, (q.z - z) * 2) > p.radius * 2.6)) pts.push({ x, z });   // 서로 겹치지 않게 (피할 틈이 있게)
     }
     for (const q of pts) boss.rocks.push({ x: q.x, z: q.z, t: -Math.random() * 0.25, p, state: 'fall', size: p.radius * (0.8 + Math.random() * 0.3), spin: (Math.random() - 0.5) * 6, seed: Math.random() * 1000 });
   }
@@ -704,7 +706,7 @@ G.Boss = (function () {
 
   // 떨어질 돌 자리: 붉은 원이 점점 차오르고, 돌이 가까워질수록 그림자가 진해짐
   function drawRockWarn(ctx, r) {
-    const u = Math.max(0, Math.min(1, r.t / r.p.fall)), y = S().floorY(r.z), rx = r.size, rz = r.size * 0.5;
+    const u = Math.max(0, Math.min(1, r.t / r.p.fall)), y = S().floorY(r.z), rx = r.size, rz = r.size / 1.6;   // 맞는 범위와 같은 모양
     if (r.t < 0) return;
     ctx.save();
     ctx.fillStyle = `rgba(220, 40, 30, ${0.12 + 0.16 * u})`;

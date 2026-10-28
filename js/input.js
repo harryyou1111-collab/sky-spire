@@ -6,7 +6,7 @@
 //   pressed[행동]  : 이번 물리 계산에서 새로 눌렸는가 (한 번만 true)
 // =====================================================================
 G.Input = (function () {
-  const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dodge', 'heal'];
+  const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dodge', 'heal', 'skill1', 'skill2'];
   const held = {}, pressed = {};
   ACTIONS.forEach(a => { held[a] = false; pressed[a] = false; });
   const axis = { x: 0, y: 0 };
@@ -119,7 +119,7 @@ G.Input = (function () {
   const KEYMAP = {
     ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
     ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
-    Space: 'jump', KeyJ: 'attack', KeyK: 'dodge', KeyH: 'heal',
+    Space: 'jump', KeyJ: 'attack', KeyK: 'dodge', KeyH: 'heal', KeyU: 'skill1', KeyI: 'skill2',
   };
 
   function init() {

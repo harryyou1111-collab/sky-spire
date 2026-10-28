@@ -92,6 +92,7 @@ G.Talk = (function () {
     S = null;
     el.classList.add('hidden');
     el.classList.remove('shake', 'flash');
+    document.body.classList.remove('cine');     // 화면 조작 버튼 다시 보이게 (보스 등장 연출이 이어지면 거기서 다시 숨김)
     const cb = done; done = null;
     if (cb) cb();
   }
