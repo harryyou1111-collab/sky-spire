@@ -4,7 +4,7 @@
 // 보스마다 bosses.js에 talk: { bg, cast, lines } 를 적으면 보스전 전에 나옴 (처음 한 번만)
 //   bg   : 배경 그림
 //   cast : 나오는 인물 { 이름표: { name, side: 'left'|'right'|'back', faces: { 표정: 그림 } } }
-//          back = 화면 뒤쪽에 크게 (거대한 보스)
+//          back = 화면 뒤쪽에 크게 (거대한 보스), flip: true = 그림을 좌우로 뒤집음 (바라보는 방향 맞추기)
 //   lines: [{ who, face, text, voice, shake, flash }, ...]
 //          who: cast의 이름표 (없으면 해설), face: 표정 (바꿀 때만), voice: 목소리 파일 (없어도 됨)
 //          shake: 화면 흔들림, flash: 번쩍 (깨어날 때 등)
@@ -27,7 +27,7 @@ G.Talk = (function () {
     stage.innerHTML = '';
     for (const [id, c] of Object.entries(script.cast)) {
       const im = document.createElement('img');
-      im.className = 'tk-char ' + (c.side || 'left'); im.alt = '';
+      im.className = 'tk-char ' + (c.side || 'left') + (c.flip ? ' flip' : ''); im.alt = '';   // flip: 그림을 좌우로 뒤집음
       im.dataset.id = id;
       Object.values(c.faces).forEach(f => { new Image().src = src(f); });   // 표정 그림 미리 불러 두기
       stage.appendChild(im); imgs[id] = im;

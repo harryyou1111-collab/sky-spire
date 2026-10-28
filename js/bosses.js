@@ -32,7 +32,7 @@ G.BossDefs = {
       bg: 'assets/bosses/golem/bg.jpg',
       cast: {
         golem: { name: '탑의 문지기', side: 'back', faces: { sleep: 'assets/story/golem_sleep.webp', awake: 'assets/story/golem_awake.webp' } },
-        hero:  { name: '홀로 오르는 자', side: 'right', faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+        hero:  { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
         { who: 'golem', face: 'sleep', text: '…오랜만이군. 발소리가 들린 것은.', voice: 'assets/story/voice/golem_01.mp3' },
