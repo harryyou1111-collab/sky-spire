@@ -13,7 +13,7 @@ G.Sound = (function () {
   const AC = window.AudioContext || window.webkitAudioContext;
   let ctx = null, master, sfxGain, bgmGain;
   const buffers = {};
-  const vol = () => (G.Save.data.settings || (G.Save.data.settings = { sfx: 0.8, bgm: 0.5 }));
+  const vol = () => (G.Save.data.settings || (G.Save.data.settings = { sfx: 0.8, bgm: 0.7 }));
 
   // 있는 효과음 파일 (이름: 기본 크기)
   const SFX = { swing: 0.8, swing3: 0.9, hit: 0.9, smash: 1, roar: 1 };
@@ -26,7 +26,7 @@ G.Sound = (function () {
   // 배경음 (파일을 넣으면 켬). loop: [반복 시작, 반복 끝](초) — 처음엔 0초부터 재생하고, 끝에 닿으면 반복 시작으로 돌아감
   //   (전주는 한 번만 나오고 본 곡만 반복. 박자가 맞는 지점을 골라 둬서 이음매가 안 들림)
   const BGM = {
-    lobby: { loop: [31.393, 102.50467] },  // March of Fireworks (Pixabay, lui_epicmusic) — 앞 31초 전주 후 40마디 반복
+    lobby: { start: 16, loop: [31.393, 102.50467] },  // March of Fireworks (Pixabay, lui_epicmusic) — 너무 작은 앞 16초는 건너뜀, 전주 후 40마디 반복
     path: null, opening: null,
     boss: { loop: [11.865, 131.85474] },    // Blood Ascendant (Pixabay, davidjbarrios)
   };
@@ -102,19 +102,43 @@ G.Sound = (function () {
       const L = BGM[name].loop;
       if (L) { s.loopStart = L[0]; s.loopEnd = L[1]; }
       const g = ctx.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(1, ctx.currentTime, 0.6);
-      s.connect(g); g.connect(bgmGain); s.start();
+      s.connect(g); g.connect(bgmGain); s.start(0, BGM[name].start || 0);
       cur = { s, g };
     } catch (e) { /* 배경음 파일이 없으면 조용히 */ }
+  }
+
+  // 대사 목소리: 파일을 불러서 재생 (이전 목소리는 멈춤). 길이(초)를 돌려줌 — 아직 안 불러졌으면 0
+  //   효과음 음량을 따름. G.Sound.voice(null) = 멈춤
+  const voiceCache = {};
+  let voiceSrc = null, voiceWant = null;
+  function voice(url) {
+    voiceWant = url;
+    if (voiceSrc) { try { voiceSrc.stop(); } catch (e) {} voiceSrc = null; }
+    if (!url || !ctx) return 0;
+    const go = b => {
+      if (voiceWant !== url) return;
+      const s = ctx.createBufferSource(); s.buffer = b;
+      const g = ctx.createGain(); g.gain.value = 1.3;
+      s.connect(g); g.connect(sfxGain); s.start(); voiceSrc = s;
+    };
+    if (voiceCache[url]) { go(voiceCache[url]); return voiceCache[url].duration; }
+    loadFile(url).then(b => { voiceCache[url] = b; go(b); }).catch(() => {});
+    return 0;
+  }
+  // 대화 장면 시작 때 목소리 파일을 미리 불러 둠 (대사가 나올 때 바로 재생되게)
+  function preloadVoice(url) {
+    if (!ctx || voiceCache[url]) return;
+    loadFile(url).then(b => { voiceCache[url] = b; }).catch(() => {});
   }
 
   function applyVolume() {
     if (!ctx) return;
     const v = vol();
-    sfxGain.gain.value = v.sfx; bgmGain.gain.value = v.bgm * 0.7;
+    sfxGain.gain.value = v.sfx; bgmGain.gain.value = v.bgm;
   }
   function setVolume(kind, value) { vol()[kind] = value; G.Save.save(); applyVolume(); }
   // 다른 앱으로 가면 소리도 멈춤
   document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend(); else ctx.resume(); });
 
-  return { unlock, play, bgm, setVolume, get volume() { return vol(); } };
+  return { unlock, play, bgm, voice, preloadVoice, setVolume, get volume() { return vol(); } };
 })();

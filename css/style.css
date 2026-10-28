@@ -408,3 +408,51 @@ body.in-lobby #hud, body.in-lobby #controls, body.in-lobby #boss-bar, body.in-lo
   text-shadow: 0 2px 8px #000;
 }
 #cine .cine-skip { position: absolute; right: 18px; top: 14px; font-size: 11px; color: rgba(255,255,255,.45); letter-spacing: 1px; }
+
+/* ---------- 대화 장면 (talk.js) ---------- */
+#talk { position: fixed; inset: 0; z-index: 40; overflow: hidden; background: #05070b; user-select: none; -webkit-user-select: none; }
+#talk.hidden { display: none; }
+#talk .tk-bg { position: absolute; inset: -2%; background: center / cover no-repeat; filter: brightness(.55) saturate(.9); }
+#talk .tk-stage { position: absolute; inset: 0; pointer-events: none; }
+#talk .tk-char {
+  position: absolute; bottom: 0; opacity: 0; filter: brightness(.42);
+  transition: opacity .45s, filter .3s, transform .45s; will-change: transform, filter;
+}
+#talk .tk-char.in { opacity: 1; }
+#talk .tk-char.speak { filter: brightness(1) drop-shadow(0 0 18px rgba(0,0,0,.6)); }
+/* 화면 뒤쪽의 거대한 보스: 가운데에서 살짝 왼쪽, 대화창 위로 크게 */
+#talk .tk-char.back { left: 40%; bottom: 20%; height: 80%; transform: translate(-50%, 12px) scale(.98); }
+#talk .tk-char.back.in { transform: translate(-50%, 0) scale(1); }
+#talk .tk-char.back.speak { transform: translate(-50%, 0) scale(1.03); }
+#talk .tk-char.left  { left: 2%;  height: 96%; transform: translateX(-30px); }
+#talk .tk-char.right { right: 2%; height: 96%; transform: translateX(30px); }
+#talk .tk-char.left.in, #talk .tk-char.right.in { transform: translateX(0); }
+#talk .tk-char.left.speak, #talk .tk-char.right.speak { transform: translateY(-6px); }
+#talk .tk-box {
+  position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
+  width: min(88%, 860px); min-height: 92px; padding: 22px 30px 18px; box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(12,14,20,.88), rgba(6,7,11,.94));
+  border: 1px solid rgba(232,196,122,.45); border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.04);
+}
+#talk .tk-name {
+  position: absolute; top: -15px; left: 26px; padding: 4px 16px;
+  font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #1a1209;
+  background: linear-gradient(180deg, #f1d590, #c49a4e); border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+#talk .tk-box.right .tk-name { left: auto; right: 26px; }
+#talk .tk-name.none { display: none; }
+#talk .tk-text { font-size: 18px; line-height: 1.6; color: #efeae0; min-height: 1.6em; white-space: pre-line; text-shadow: 0 1px 3px #000; }
+#talk .tk-next { position: absolute; right: 16px; bottom: 8px; font-size: 11px; font-style: normal; color: #e8c47a; opacity: 0; }
+#talk .tk-box.ready .tk-next { opacity: 1; animation: tkBob .9s ease-in-out infinite; }
+@keyframes tkBob { 50% { transform: translateY(3px); } }
+#talk .tk-btns { position: absolute; top: 12px; right: 14px; display: flex; gap: 8px; z-index: 2; }
+#talk .tk-btns button {
+  font: inherit; font-size: 12px; padding: 6px 12px; color: #d9d2c2; background: rgba(0,0,0,.45);
+  border: 1px solid rgba(232,196,122,.35); border-radius: 14px;
+}
+#talk .tk-btns button.on { color: #1a1209; background: #e8c47a; }
+#talk.shake { animation: tkShake .45s; }
+@keyframes tkShake { 15% { transform: translate(-8px, 4px); } 30% { transform: translate(7px, -5px); } 45% { transform: translate(-5px, 3px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
+#talk.flash::after { content: ''; position: absolute; inset: 0; background: rgba(170,215,255,.85); pointer-events: none; animation: tkFlash .7s forwards; }
+@keyframes tkFlash { to { opacity: 0; } }

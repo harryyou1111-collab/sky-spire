@@ -45,11 +45,13 @@ G.Floor = (function () {
     G.Boss.reset();
     if (player) { player.x = 220; player.z = 95; player.vx = player.vz = 0; player.facing = 1; }
     const D = G.Boss.def, seen = G.Save.data.seenCine || (G.Save.data.seenCine = {});
-    if (!short && D.cine && !seen[st.def.boss] && G.Game && G.Game.mode === 'play') {   // 로비 뒤 화면을 준비할 때는 안 나옴
+    // 보스전 전 이야기: 대화 장면(talk) 또는 영상(cine). 처음 한 번만
+    const story = D.talk ? (cb => G.Talk.play(D.talk, cb)) : D.cine ? (cb => G.Cine.play(D.cine, cb)) : null;
+    if (!short && story && !seen[st.def.boss] && G.Game && G.Game.mode === 'play') {   // 로비 뒤 화면을 준비할 때는 안 나옴
       st.phase = 'cine';
-      G.Sound.bgm(null);
-      G.Boss.state.mode = 'intro';                                // 영상이 끝날 때까지 보스는 공격하지 않음
-      G.Cine.play(D.cine, () => {
+      G.Sound.bgm(D.talk ? 'boss' : null);                       // 대화 중엔 보스 음악의 조용한 전주가 깔림 (영상은 영상 소리)
+      G.Boss.state.mode = 'intro';                                // 끝날 때까지 보스는 공격하지 않음
+      story(() => {
         seen[st.def.boss] = true; G.Save.save();
         st.phase = 'intro';
         G.BossIntro.start(true);                                  // 영상에서 깨어나는 장면을 봤으니 이름 카드만
