@@ -152,6 +152,30 @@ G.BossDefs = {
     name: '칼리돈의 멧돼지',
     title: '사냥꾼들을 삼킨 짐승',
     reward: { equip: 'boar_tusk' },   // 처음 쓰러뜨리면 장신구 '칼리돈의 엄니' (items.js)
+    // 대화 장면 (talk.js): 멧돼지는 말을 못 하니 울음과 화면 흔들림으로 대답. 주인공 목소리만
+    talk: {
+      bg: 'assets/bosses/boar/bg.jpg',
+      cast: {
+        boar: { name: '칼리돈의 멧돼지', side: 'back', flip: true, faces: { base: 'assets/story/boar.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'hero', face: 'serious', text: '사냥터라기보단, 무덤이군.', voice: 'assets/story/voice/hero_b1.mp3' },
+        { who: 'boar', face: 'base', text: '크르르르…!', sfx: 'boar_roar', shake: true },
+        { who: 'hero', text: '덤벼.', voice: 'assets/story/voice/hero_b2.mp3' },
+      ],
+    },
+    talkWin: {
+      bg: 'assets/bosses/boar/bg.jpg',
+      cast: {
+        boar: { name: '칼리돈의 멧돼지', side: 'back', flip: true, faces: { base: 'assets/story/boar.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'hero', face: 'tired', text: '정면으로 받아내긴… 무리였어.', voice: 'assets/story/voice/hero_b3.mp3' },
+        { who: 'hero', face: 'base', text: '끝까지 물러서지 않았군. 이건 가져가지.', voice: 'assets/story/voice/hero_b4.mp3', flash: true },
+      ],
+    },
     hp: 420,
     start: { x: 700, z: 60, face: -1 },
     baseX: 700, baseZ: 60,          // 등장 연출 카메라가 볼 곳
