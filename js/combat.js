@@ -41,7 +41,8 @@ G.Combat = (function () {
 
   // ---------- 플레이어가 맞음 ----------
   // fromX, fromZ: 공격이 온 곳 (그 반대 방향으로 밀려남)
-  function hurtPlayer(p, dmg, fromX, fromZ) {
+  // o.stun: 맞은 뒤 그 시간(초) 동안 기절 (조작 불가, 머리 위에 별)
+  function hurtPlayer(p, dmg, fromX, fromZ, o) {
     const c = G.CFG.player;
     if (p.dead || p.iframe > 0) return false;
     if (p.stone > 0) {                       // 석화 스킬: 돌이 된 동안은 아무 피해도 안 받음
@@ -61,6 +62,7 @@ G.Combat = (function () {
     p.onGround = false;
     if (Math.abs(dx) > 0.2) p.facing = -Math.sign(dx);   // 맞은 쪽을 바라봄
     p.hurt = c.hurtTime;
+    if (o && o.stun) { p.hurt = Math.max(p.hurt, o.stun); p.stunned = o.stun; G.FX.text(p.x, S().screenY(p.z, p.h + 160), '기절', '#ffd27a'); }
     G.Sound.play('hurt');
     p.iframe = c.hurtIframe;
     G.FX.hitstop(0.08);
@@ -85,8 +87,16 @@ G.Combat = (function () {
       hitAny = true;
 
       const push = Math.abs(a.dir.x) > 0.3 ? Math.sign(a.dir.x) : (Math.random() < 0.5 ? -1 : 1);
-      if (!firstHit) { firstHit = t; G.Sound.play(t.mob ? (dmg >= 15 ? 'hit_heavy' : 'hit') : 'hit_boss'); }
-      if (t.onHit) t.onHit(dmg, push, a);
+      // onHit이 false를 돌려주면 막힘 (보스가 기술을 쓰는 중 등): 피해 없이 튕겨 나감
+      const blocked = t.onHit ? t.onHit(dmg, push, a) === false : false;
+      if (!firstHit) { firstHit = t; G.Sound.play(blocked ? 'hit' : t.mob ? (dmg >= 15 ? 'hit_heavy' : 'hit') : 'hit_boss', blocked ? { rate: 1.6, vol: 0.6 } : undefined); }
+      if (blocked) {
+        const ch = (Math.max(r.h0, t.h) + Math.min(r.h1, t.h + t.height)) / 2;
+        G.FX.spark(t.x - a.dir.x * t.w * 0.3, S().screenY(t.z, ch), push, 0.4);
+        G.FX.text(t.x, S().screenY(t.z, t.h + t.height) - 6, '막힘', '#c9c4b8');
+        continue;
+      }
+      if (t.onHit) { /* 맞음 */ }
       else {
         t.total += dmg;
         t.flash = 0.1;

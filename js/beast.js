@@ -136,7 +136,7 @@ G.Beast = (function () {
         if (Math.floor(A.dist / 140) !== Math.floor((A.dist - step) / 140)) G.FX.shake(3, 0.08);   // 발굽 소리처럼 쿵쿵
         // 플레이어와 부딪힘 (한 번만)
         if (!A.hit && !player.dead && Math.abs(player.x - st.x) < def.hit.w / 2 + 6 && Math.abs(player.z - st.z) < 30 && player.h < def.hit.h * 0.8) {
-          if (G.Combat.hurtPlayer(player, p.dmg, st.x - A.dx * 50, st.z)) A.hit = true;
+          if (G.Combat.hurtPlayer(player, p.dmg, st.x - A.dx * 50, st.z, { stun: p.stunPlayer })) A.hit = true;   // 돌진에 맞으면 기절
         }
         // 바위·그루터기에 부딪힘 → 부수고 오래 기절
         const fx = st.x + A.dx * def.hit.w * 0.45, fz = st.z + A.dz * 10;
@@ -193,8 +193,11 @@ G.Beast = (function () {
     A.phase = 'stun'; A.t = 0; A.stun = stun; st.stars = stun + 0.3;
   }
 
+  // 기술을 쓰는 중(돌진 준비·돌진·엄니)에는 공격이 막힘. 쉬는 중·기절 중에만 맞음
+  const guarding = () => st.act && !(st.act.kind === 'charge' && st.act.phase === 'stun');
   function hurt(dmg) {
     if (st.mode !== 'fight') return;
+    if (guarding()) return false;
     st.hp = Math.max(0, st.hp - dmg);
     st.flash = 0.08;
     updateUI();

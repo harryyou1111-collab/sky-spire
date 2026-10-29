@@ -181,6 +181,7 @@ G.Player = (function () {
     p.chainT = Math.max(0, p.chainT - dt);
     p.coyote = p.onGround ? c.coyoteTime : Math.max(0, p.coyote - dt);
     p.hurt = Math.max(0, p.hurt - dt);
+    p.stunned = Math.max(0, (p.stunned || 0) - dt);
 
     // 맞은 직후나 쓰러진 뒤에는 조작 불가: 미끄러지며 멈추기만
     if (p.dead || p.hurt > 0) {
@@ -520,6 +521,17 @@ G.Player = (function () {
       ctx.restore();
     }
     if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.sy, p.facing);
+    // 기절: 머리 위에 빙글빙글 도는 별
+    if (p.stunned > 0 && !p.dead) {
+      const t = performance.now() / 1000, hy = p.sy - 128;
+      for (let i = 0; i < 3; i++) {
+        const a = t * 5 + i * Math.PI * 2 / 3, x = p.x + Math.cos(a) * 18, y = hy + Math.sin(a) * 5, r = 4.5, al = Math.sin(a) > 0 ? 1 : 0.55;
+        ctx.fillStyle = `rgba(255, 228, 120, ${al})`; ctx.strokeStyle = `rgba(90, 60, 10, ${al})`; ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) { const b = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; ctx[k ? 'lineTo' : 'moveTo'](x + Math.cos(b) * rr, y + Math.sin(b) * rr); }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
   }
 
   // 깊이 정렬용 (z가 클수록 앞에 그림)
