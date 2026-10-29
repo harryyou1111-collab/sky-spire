@@ -166,5 +166,8 @@ G.BossIntro = (function () {
     ctx.restore();
   }
 
-  return { start, update, camera, draw, skip, get on() { return it.on; }, state: it };
+  // 연출 중단 (다른 층의 몹 구간으로 넘어갈 때 등): 화면 가림·카메라를 원래대로
+  function stop() { it.on = false; document.body.classList.remove('cine'); }
+
+  return { start, update, camera, draw, skip, stop, get on() { return it.on; }, state: it };
 })();

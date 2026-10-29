@@ -30,6 +30,7 @@ G.Floor = (function () {
   }
   function startPath(player) {
     const P = st.def.path;
+    G.BossIntro.stop();      // 로비 뒤에서 준비해 둔 1층 보스 등장 연출이 남아 있으면 끔 (조작 버튼·체력바가 숨겨진 채로 남지 않게)
     G.Mobs.clear();
     G.Stage.setLayout(P.end, P.pillars);
     GATE.x = P.gateX;
