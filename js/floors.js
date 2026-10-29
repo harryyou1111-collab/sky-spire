@@ -48,6 +48,39 @@ G.Floors = {
     ],
   },
 
+  // 3층: 하피 여왕. 몹 구간(구름 위 절벽 길) → 보스전 (날아다니는 보스)
+  //   지형물: 눈 덮인 바위 기둥 (rock_spire, 올라설 수 있음). 보스방 기둥은 하피가 급강하로 내리꽂히면 부서짐
+  3: {
+    boss: 'harpy',
+    power: 1.2,
+    path: {
+      zones: [
+        { x0: 0,    x1: 900,  mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'wisp', n: 1 }] },
+        { x0: 900,  x1: 1800, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 }] },
+        { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 },
+                                     { type: 'satyr_brute', n: 1 }] },
+      ],
+      end: 3300,
+      bg: 'assets/bosses/harpy/path_bg.jpg',   // 절벽 계단 길 2장(앞 장은 좌우 반전) + 둥지 보스방 배경을 이어 붙인 긴 그림
+      bgHorizon: 0.63,
+      gateX: 3080,
+      pillars: [
+        { x: 180,  z: 70, rx: 22, rz: 14, prop: 'rock_spire' },
+        { x: 660,  z: 32, rx: 26, rz: 15, prop: 'rock_spire' },
+        { x: 1200, z: 84, rx: 22, rz: 14, prop: 'rock_spire' },
+        { x: 1580, z: 30, rx: 24, rz: 14, prop: 'rock_spire' },
+        { x: 2100, z: 66, rx: 22, rz: 14, prop: 'rock_spire' },
+        { x: 2500, z: 36, rx: 26, rz: 15, prop: 'rock_spire' },
+        { x: 2900, z: 82, rx: 22, rz: 14, prop: 'rock_spire' },
+      ],
+    },
+    // 보스방: 높은 바위 기둥 2개. 올라서면 떠 있는 하피를 때리기 쉬움. 하피를 기둥 위로 유도해 급강하시키면 기둥이 부서지고 오래 지침
+    bossPillars: [
+      { x: 170, z: 80, rx: 30, rz: 16, prop: 'rock_spire', breakable: true },
+      { x: 730, z: 30, rx: 30, rz: 16, prop: 'rock_spire', breakable: true },
+    ],
+  },
+
   // 8층: 판 (처음 만든 보스. 1층에서 옮겨 옴 — 길·몹 구성은 그대로)
   8: {
     boss: 'pan',

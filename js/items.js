@@ -26,6 +26,15 @@ G.Items = {
     desc: '사냥꾼들을 삼킨 짐승의 부러진 엄니. 궁지에 몰릴수록 피가 끓어오른다.',
     special: { kind: 'frenzy', below: 0.3, mul: 1.5, text: '체력 30% 이하일 때 공격력 50% 증가' },
   },
+  // 여왕의 깃털 검 (무기): 공격 속도 25% 증가 — 깃털처럼 가벼운 칼날
+  //   칼 그림(sword)이 아직 없어서 손에 든 칼은 기본 검 모양. 그림이 오면 sword·fx를 채움
+  harpy_feather: {
+    name: '여왕의 깃털 검', slot: 'weapon', from: '3F 하피 여왕',
+    icon: 'assets/items/harpy_feather_icon.webp',
+    desc: '하피 여왕의 날개깃을 벼려 만든 검. 바람을 가르듯 가볍다.',
+    atk: 1,
+    special: { kind: 'swift', mul: 1.25, text: '공격 속도 25% 증가' },
+  },
 };
 
 G.Equip = (function () {
@@ -60,6 +69,8 @@ G.Equip = (function () {
     O.push(id); G.Save.save();
     return G.Items[id];
   }
+  // 공격 속도 배율 (여왕의 깃털 검: 1.25). 공격 시간과 동작을 이만큼 빠르게
+  function atkSpeed() { const f = special('swift'); return f ? f.mul : 1; }
   // 지금 든 무기의 이펙트 색 (없으면 null = 기본 색)
   function fx() { const w = item('weapon'); return (w && w.fx) || null; }
   // 칼리돈의 엄니: 지금 효과가 켜져 있는가 (체력이 기준 이하)
@@ -67,5 +78,5 @@ G.Equip = (function () {
     const f = special('frenzy'); p = p || G.player;
     return !!(f && p && !p.dead && p.hp / G.CFG.player.maxHp <= f.below) && f;
   }
-  return { item, list, atkBonus, special, toggle, set, apply, grant, fx, frenzy, BASE_WEAPON };
+  return { item, list, atkBonus, atkSpeed, special, toggle, set, apply, grant, fx, frenzy, BASE_WEAPON };
 })();

@@ -232,6 +232,110 @@ G.BossDefs = {
   },
 
   // ------------------------------------------------------------------
+  // 3층 — 하피 여왕: 구름 위 절벽 둥지의 주인. 공중을 날아다니는 보스 (flyer.js)
+  //   떠 있을 땐 점프해서 때리기. 급강하를 피해 땅에 박히게 만들면 지침 → 공격 기회
+  //   급강하를 바위 기둥 위로 유도하면 기둥이 부서지며 오래 지침
+  // ------------------------------------------------------------------
+  harpy: {
+    kind: 'flyer',
+    floor: 3,
+    name: '하피 여왕',
+    title: '구름 위 둥지의 주인',
+    reward: { equip: 'harpy_feather' },   // 처음 쓰러뜨리면 무기 '여왕의 깃털 검' (items.js)
+    // 대화 장면 (talk.js). 목소리 파일이 오면 voice를 채움
+    talk: {
+      bg: 'assets/bosses/harpy/bg.jpg',
+      cast: {
+        harpy: { name: '하피 여왕', side: 'back', flip: true, faces: { base: 'assets/story/harpy.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'harpy', face: 'base', text: '또 하나… 기어 올라온 먹잇감이구나.' },
+        { who: 'hero', face: 'serious', text: '먹잇감이 될 생각은 없어.' },
+        { who: 'harpy', face: 'base', text: '하늘은 날개 가진 자의 것. 땅을 기는 것은 떨어질 뿐!', sfx: 'harpy_cry', shake: true },
+      ],
+    },
+    talkWin: {
+      bg: 'assets/bosses/harpy/bg.jpg',
+      cast: {
+        harpy: { name: '하피 여왕', side: 'back', flip: true, faces: { base: 'assets/story/harpy.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'harpy', face: 'base', text: '어째서… 날개도 없는 것이…' },
+        { who: 'hero', face: 'tired', text: '날개는 없어도, 올라가는 법은 알아.' },
+        { who: 'hero', face: 'base', text: '이 깃털, 가져가지.', flash: true },
+      ],
+    },
+    // 진 횟수에 따라 보스가 하는 말 / 이겼을 때 (대화 장면이 없을 때만)
+    lines: {
+      lose: { 1: '땅을 기는 것이 하늘을 넘보다니.', 3: '몇 번을 올라와도, 떨어질 뿐이야.' },
+      win: '하늘이… 멀어진다…',
+    },
+    hp: 460,
+    start: { x: 700, z: 80, face: -1 },
+    baseX: 700, baseZ: 80,          // 등장 연출 카메라가 볼 곳
+    poses: {},
+    scale: 0.72,                    // 시트 1픽셀 = 게임 몇 단위 (날개폭 ≈ 260)
+    // 시트 한 장면 크기와 기준점(떠 있을 때 발끝) 위치. 모든 장면이 같은 기준점에 맞춰져 있음
+    cell: { fw: 532, fh: 549, cx: 220, cy: 385 },
+    hover: 120,                     // 떠 있는 높이 (발끝). 점프해서 공격하면 닿음
+    keep: 210,                      // 떠 있을 때 플레이어와 가로 거리
+    speed: 150,                     // 떠다니는 속도
+    zMin: 80,                       // 너무 안쪽으로 가면 날개가 화면 위로 잘려서 이보다 앞에서만 날아다님
+    hit: { w: 120, h: 130, legs: 40, wLand: 170 },   // 맞는 범위 (가로, 높이, 발끝~몸통 사이 빈 곳, 땅에 앉았을 때 가로)
+    starH: 0,                       // 지쳤을 때 별 높이 (땅에 앉은 기준점에서)
+    roar: 'harpy_cry',              // 울음 (sound.js)
+    clips: {
+      // 날갯짓 반복. up: 날개를 치켜든 장면, down: 내리치는 장면 (깃털 비)
+      fly:  { sheets: [0, 1].map(i => `assets/bosses/harpy/fly_${i}.webp`), count: 29, fps: 14, seg: { up: [1, 4], down: [4, 14] } },
+      // 날개 접기 → 급강하 자세 → 할퀴기 → 할퀸 뒤 멈춤 → 다시 떠오름
+      dive: { sheets: [0, 1, 2, 3].map(i => `assets/bosses/harpy/dive_${i}.webp`), count: 58,
+              seg: { fold: [0, 15], pose: [16, 22], strike: [23, 37], hold: [38, 42], rise: [43, 57] } },
+      // 내려앉기 → 지침 → 날아오름. ground: 그림 속 땅이 기준점보다 몇 픽셀 아래인지
+      land: { sheets: [0, 1, 2].map(i => `assets/bosses/harpy/land_${i}.webp`), count: 44, ground: 105,
+              seg: { land: [0, 8], dazed: [9, 24], takeoff: [25, 43] } },
+    },
+    theme: {
+      bg: 'assets/bosses/harpy/bg.jpg',         // 구름 위 절벽 둥지
+      horizon: 0.63,
+      sky: ['#1a2a44', '#4a6a96', '#141c2a'],
+      moon: '220, 235, 255',
+      leaves: false,
+      feathers: true,                           // 바람에 깃털이 날림
+      dust: '150, 158, 170',
+      silhouette: 'none',
+      // 바닥: 차가운 회색 바위
+      ground: { far: '#3c4048', near: '#585e68', line: '#6a707b', front: '#1c1f24', wall: '#0e1014',
+                side: ['#2f333a', '#464b54', '#2a2d33'], top: '#666c76', rim: '#8a909a' },
+    },
+    patterns: {
+      // 급강하: 붉은 원이 플레이어를 따라오다(track 비율까지) 멈춤 → 원으로 내리꽂힘. 원 밖으로 피하기
+      //   radius: 원 크기, swoop: 내리꽂히는 시간, stun: 땅에 박혀 지치는 시간, stunRock: 바위 기둥에 떨어졌을 때
+      dive: { telegraph: 1.0, track: 0.65, rise: 15, swoop: 0.32, radius: 72, dmg: 22, stunPlayer: 0,
+              stun: 2.0, stunRock: 3.2, takeoff: 1.0, rest: 0.9, bounce: 0, bounceTelegraph: 0.55 },
+      // 깃털 비: 높이 떠서 바닥 여러 곳(하나는 플레이어 자리)에 깃털을 쏟아부음. 원 밖으로 피하거나 점프
+      feathers: { telegraph: 0.9, rise: 0, count: 5, spread: 300, radius: 38, dmg: 12, flight: 0.45, stagger: 0.06, rest: 0.9 },
+      // 할퀴기: 가까이(near) 있으면 낮게 내려와 발톱으로 할큄 → 할퀸 뒤(hold) 잠깐 맞음
+      rake: { near: 230, stand: 110, alt: 30, windup: 0.55, strike: 0.25, hold: 0.6, rise: 0.8, range: 190, dmg: 18, rest: 0.7 },
+    },
+    // 체력 50% 이하: 바위에 안 부딪히면 튀어 올라 한 번 더 급강하, 깃털이 늘어남
+    phase2: {
+      at: 0.5,
+      dive: { telegraph: 0.85, bounce: 1, rest: 0.6 },
+      feathers: { count: 7, telegraph: 0.8 },
+      rake: { windup: 0.45 },
+    },
+    // 광폭화 (체력 20% 이하): 몸이 붉게 달아오르고 거의 쉬지 않음 (급강하는 한 번에 최대 2번)
+    rage: {
+      at: 0.2,
+      dive: { telegraph: 0.7, bounce: 1, bounceTelegraph: 0.45, stun: 1.3, stunRock: 2.2, rest: 0.3 },
+      feathers: { count: 9, telegraph: 0.65, rest: 0.4 },
+      rake: { windup: 0.38, hold: 0.45, rest: 0.3 },
+    },
+  },
+
+  // ------------------------------------------------------------------
   // 8층 — 판: 숲과 야생, 공포(panic)의 신. 염소 뿔과 귀, 수염 (처음엔 1층 보스였음)
   // ------------------------------------------------------------------
   pan: {

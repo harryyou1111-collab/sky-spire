@@ -38,6 +38,15 @@ G.BFX = (function () {
                    color: ['#5f8a3a', '#7aa04a', '#8b6a3a', '#4c7030'][Math.floor(R(0, 4))] });
     }
   }
+  // 깃털: 팔랑이며 천천히 떨어짐 (하피). ambient면 바람에 실려 화면을 길게 가로지름 (배경)
+  function feathers(x, z, h, n, dirx, speed, ambient) {
+    for (let i = 0; i < n; i++) {
+      parts.push({ kind: 'feather', x: x + R(-14, 14), z: z + R(-4, 4), h: h + R(-10, 10),
+                   vx: (dirx || R(-1, 1)) * R(50, 140) * (speed || 1), vz: R(-8, 8), vh: ambient ? R(-10, 10) : R(30, 110),
+                   size: R(6, 10), rot: R(0, 6), vr: R(-5, 5), age: 0, life: ambient ? R(6, 9) : R(1.2, 2.0), ph: R(0, 6), ambient: !!ambient,
+                   color: ['#e8e2d6', '#cfc6b8', '#8a7a68', '#5a4a3c'][Math.floor(R(0, 4))] });
+    }
+  }
   // 빛 알갱이: 한 점으로 빨려 들어감 (to가 있으면) / 위로 떠오름
   function motes(x, z, h, n, to, color) {
     for (let i = 0; i < n; i++) {
@@ -79,6 +88,12 @@ G.BFX = (function () {
         p.vh -= 120 * dt; p.vh = Math.max(p.vh, -40);
         p.x += (p.vx + Math.sin(p.age * 6 + p.ph) * 30) * dt; p.z += p.vz * dt; p.h = Math.max(0, p.h + p.vh * dt);
         p.vx *= 0.985; p.rot += p.vr * dt;
+      } else if (p.kind === 'feather') {
+        if (p.ambient) p.vh += Math.sin(p.age * 1.3 + p.ph) * 20 * dt;
+        else { p.vh -= 140 * dt; p.vh = Math.max(p.vh, -30); }
+        p.x += (p.vx + Math.sin(p.age * 3 + p.ph) * 24) * dt; p.z += p.vz * dt; p.h = Math.max(0, p.h + p.vh * dt);
+        if (!p.ambient) p.vx *= 0.985;
+        p.rot += p.vr * dt * 0.5 + Math.sin(p.age * 3 + p.ph) * dt;
       } else if (p.kind === 'mote') {
         if (p.to) {   // 목표 쪽으로 가속
           const tx = p.to.x - p.x, ty = p.to.h - p.h, d = Math.hypot(tx, ty) || 1;
@@ -122,6 +137,15 @@ G.BFX = (function () {
         ctx.translate(p.x, y); ctx.rotate(p.rot); ctx.scale(1, 0.4 + 0.6 * Math.abs(Math.sin(p.age * 7 + p.ph)));
         ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      } else if (p.kind === 'feather') {
+        ctx.save(); ctx.globalAlpha = Math.min(1, (1 - u) * 3, p.age * 3) * (p.ambient ? 0.75 : 1);
+        ctx.translate(p.x, y); ctx.rotate(p.rot);
+        const s = p.size;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.moveTo(-s, 0); ctx.quadraticCurveTo(0, -s * 0.32, s, 0); ctx.quadraticCurveTo(0, s * 0.32, -s, 0); ctx.fill();
+        ctx.strokeStyle = 'rgba(40, 30, 22, .7)'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(-s * 1.15, 0); ctx.lineTo(s, 0); ctx.stroke();
         ctx.restore();
       } else if (p.kind === 'mote') {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -202,5 +226,5 @@ G.BFX = (function () {
 
   function clear() { parts.length = 0; screen = null; }
 
-  return { debris, dust, leaves, motes, flash, screenFlash, thorns, update, drawTop, vine, clear };
+  return { debris, dust, leaves, feathers, motes, flash, screenFlash, thorns, update, drawTop, vine, clear };
 })();

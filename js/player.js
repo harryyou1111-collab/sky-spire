@@ -359,7 +359,7 @@ G.Player = (function () {
 
   function updateAttack(p, dt, ax, ay) {
     const c = C(), a = p.atk, d = a.def;
-    a.t += dt;
+    a.t += dt * G.Equip.atkSpeed();                 // 여왕의 깃털 검: 휘두르는 속도가 빨라짐
     const s = d.startup, e = s + d.active, end = e + d.recovery;
     a.phase = a.t < s ? 'startup' : a.t < e ? 'active' : 'recovery';
     if (a.kind === 'down' && a.t >= s && !p.onGround) a.phase = 'active'; // 땅에 닿을 때까지 판정 유지
@@ -464,10 +464,11 @@ G.Player = (function () {
       } else p.state = 'idle';
       p.anim.play(p.state);
     }
-    p.anim.update(dt, speed);
+    const aspd = p.atk ? G.Equip.atkSpeed() : 1;    // 공격 중이면 동작도 같은 비율로 빠르게
+    p.anim.update(dt * aspd, speed);
     p.joints = G.Rig.compute(SKELETON, p.anim.pose, p.onGround);
     p.sy = G.Stage.screenY(p.z, p.h);
-    if (G.Hero3D) G.Hero3D.update(p.stone > 0 ? 0 : dt, p);      // 3D 캐릭터 (불러온 경우에만). 석화 중엔 동작이 멈춤
+    if (G.Hero3D) G.Hero3D.update(p.stone > 0 ? 0 : dt * aspd, p);      // 3D 캐릭터 (불러온 경우에만). 석화 중엔 동작이 멈춤
 
     // 검 궤적: 타격 직전부터 휘두른 직후까지 기록 (화면 좌표)
     if (p.atk) {

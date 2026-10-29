@@ -22,6 +22,7 @@ G.Sound = (function () {
     swing2: ['swing', { rate: 1.08 }],
     hit_heavy: ['hit', { rate: 0.85, vol: 1 }],
     hit_boss: ['hit', { rate: 0.72, vol: 1 }],
+    harpy_cry: ['roar', { rate: 1.7, vol: 0.8 }],   // 하피 여왕 울음 (포효를 높게. 나중에 전용 소리로 바꿀 자리)
   };
   // 배경음 (파일을 넣으면 켬). loop: [반복 시작, 반복 끝](초) — 처음엔 0초부터 재생하고, 끝에 닿으면 반복 시작으로 돌아감
   //   (전주는 한 번만 나오고 본 곡만 반복. 박자가 맞는 지점을 골라 둬서 이음매가 안 들림)
@@ -79,7 +80,7 @@ G.Sound = (function () {
     if (lastAt[name] && now - lastAt[name] < 0.03) return;
     lastAt[name] = now;
     const s = ctx.createBufferSource(); s.buffer = b;
-    const rate = (o && o.rate) || base.rate || 1;
+    const rate = ((o && o.rate) || 1) * (base.rate || 1);   // 빌려 쓰는 소리는 그 높이에 곱함
     s.playbackRate.value = rate * (1 + (Math.random() - 0.5) * 0.08);   // 매번 살짝 다른 높이 (덜 반복적으로 들림)
     const g = ctx.createGain();
     g.gain.value = (SFX[file] || 1) * ((o && o.vol != null) ? o.vol : (base.vol != null ? base.vol : 1));

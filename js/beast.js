@@ -312,12 +312,13 @@ G.Beast = (function () {
 })();
 
 // ---------------------------------------------------------------------
-// G.Boss: 지금 층 보스 종류에 맞는 엔진으로 연결 (고정형 boss.js / 움직이는 beast.js)
+// G.Boss: 지금 층 보스 종류에 맞는 엔진으로 연결 (고정형 boss.js / 움직이는 beast.js / 날아다니는 flyer.js)
 // ---------------------------------------------------------------------
 G.Boss = (function () {
   let E = G.BossFixed;
+  const ENGINES = { beast: () => G.Beast, flyer: () => G.Flyer };
   return {
-    load(key) { E = G.BossDefs[key].kind === 'beast' ? G.Beast : G.BossFixed; E.load(key); },
+    load(key) { const k = G.BossDefs[key].kind; E = ENGINES[k] ? ENGINES[k]() : G.BossFixed; E.load(key); },
     reset() { E.reset(); },
     update(dt, p) { E.update(dt, p); },
     drawBack(ctx) { E.drawBack(ctx); },

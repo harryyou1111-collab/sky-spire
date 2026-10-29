@@ -30,6 +30,7 @@ G.Stage = (function () {
     rock_flat: { src: 'assets/props/rock_flat.webp', w: 420, h: 203, top: 0.27, foot: 0.86, widthOf: 0.95 },
     rock_tall: { src: 'assets/props/rock_tall.webp', w: 420, h: 491, top: 0.12, foot: 0.93, widthOf: 0.95 },
     stump:     { src: 'assets/props/stump.webp',     w: 420, h: 350, top: 0.14, foot: 0.80, widthOf: 0.6 },
+    rock_spire: { src: 'assets/props/rock_spire.webp', w: 280, h: 718, top: 0.05, foot: 0.97, widthOf: 0.75 },   // 3층 눈 덮인 바위 기둥 (높음)
   };
   const propScale = p => 2 * p.rx / (PROPS[p.prop].w * PROPS[p.prop].widthOf);
   const stage = {
