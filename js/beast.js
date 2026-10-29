@@ -43,10 +43,12 @@ G.Beast = (function () {
     updateUI();
   }
   function params(kind) {
-    const p = Object.assign({}, def.patterns[kind]);
-    if (def.phase2 && st.hp / st.maxHp <= def.phase2.at) Object.assign(p, def.phase2[kind] || {});
+    const p = Object.assign({}, def.patterns[kind]), k = st.hp / st.maxHp;
+    if (def.phase2 && k <= def.phase2.at) Object.assign(p, def.phase2[kind] || {});
+    if (def.rage && k <= def.rage.at) Object.assign(p, def.rage[kind] || {});   // 광폭화
     return p;
   }
+  const raging = () => def.rage && st.hp / st.maxHp <= def.rage.at;
 
   // ---------- 동작 영상 ----------
   // 구간 [a, b]를 u(0~1)만큼 진행한 장면
@@ -82,6 +84,7 @@ G.Beast = (function () {
         breathe();
         if (Math.abs(player.x - st.x) > 30) st.face = Math.sign(player.x - st.x);   // 플레이어 쪽을 봄
         st.timer -= dt;
+        if (raging() && Math.random() < dt * 10) G.BFX.dust(st.x + st.face * 110, st.z, 1, 0.4, '200, 70, 40');   // 콧김 대신 붉은 기운
         if (st.timer <= 0 && !player.dead) choose(player);
       }
     }
@@ -126,7 +129,7 @@ G.Beast = (function () {
         if (u < p.track && !player.dead) aim(A, player);
         seg('tusk', 'lower', Math.min(1, u * 1.6));                      // 고개를 낮추고 노려봄
         if (Math.random() < dt * 8) G.BFX.dust(st.x - st.face * 60, st.z, 1, 0.5, def.theme.dust);   // 뒷발로 땅을 긁음
-        if (u >= 1) { A.phase = 'run'; A.t = 0; A.x0 = st.x; A.z0 = st.z; G.Sound.play('roar', { rate: 1.5, vol: 0.6 }); }
+        if (u >= 1) { A.phase = 'run'; A.t = 0; A.x0 = st.x; A.z0 = st.z; G.Sound.play(def.roar || 'roar', { vol: 0.8 }); }
       } else if (A.phase === 'run') {
         const step = p.speed * dt;
         A.dist += step;
@@ -198,12 +201,20 @@ G.Beast = (function () {
   function hurt(dmg) {
     if (st.mode !== 'fight') return;
     if (guarding()) return false;
+    const wasRage = raging();
     st.hp = Math.max(0, st.hp - dmg);
+    // 광폭화 시작: 체력이 거의 다 닳으면 미쳐 날뜀 (울부짖음 + 붉은 번쩍임, 기절 중이면 바로 깨어남)
+    if (!wasRage && raging() && st.hp > 0) {
+      G.Sound.play(def.roar || 'roar', { rate: 0.9 }); G.FX.shake(16, 0.6);
+      G.BFX.screenFlash('255, 60, 30', 0.35);
+      G.FX.text(st.x, S().screenY(st.z, def.hit.h + 30), '광폭화!', '#ff5a3a');
+      if (st.act && st.act.phase === 'stun') { st.act = null; st.timer = 0.3; }
+    }
     st.flash = 0.08;
     updateUI();
     if (st.hp <= 0) {
       st.mode = 'dying'; st.timer = 2.4; st.act = null; st.marks = [];
-      G.Sound.play('roar', { rate: 0.8 });
+      G.Sound.play(def.roar || 'roar', { rate: 0.8 });
       G.FX.shake(12, 0.5);
     }
   }
@@ -251,6 +262,13 @@ G.Beast = (function () {
     if (def.rim) { ctx.shadowColor = def.rim; ctx.shadowBlur = 10; }    // 바닥과 구분되게 몸 테두리에 빛
     ctx.drawImage(im, sx, sy, C.fw, C.fh, -C.cx * s, -C.bottom * s, C.fw * s, C.fh * s);
     ctx.shadowBlur = 0;
+    // 광폭화: 몸이 붉게 달아올라 일렁임
+    if (raging() && st.mode === 'fight') {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.22 + 0.12 * Math.sin(st.time * 12);
+      ctx.filter = 'sepia(1) saturate(6) hue-rotate(-30deg)';
+      ctx.drawImage(im, sx, sy, C.fw, C.fh, -C.cx * s, -C.bottom * s, C.fw * s, C.fh * s);
+      ctx.filter = 'none'; ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = st.fade;
+    }
     if (st.flash > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; ctx.drawImage(im, sx, sy, C.fw, C.fh, -C.cx * s, -C.bottom * s, C.fw * s, C.fh * s); }
     ctx.restore();
   }

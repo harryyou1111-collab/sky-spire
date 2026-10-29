@@ -27,6 +27,8 @@ G.Floors = {
         { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 }] },
       ],
       end: 3300,
+      bg: 'assets/bosses/boar/path_bg.jpg',   // 사냥터 숲길 2장 + 보스방 배경을 이어 붙인 긴 그림
+      bgHorizon: 0.62,
       gateX: 3080,
       pillars: [
         { x: 160,  z: 70, rx: 46, rz: 20, prop: 'rock_flat' },

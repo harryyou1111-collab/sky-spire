@@ -521,6 +521,15 @@ G.Player = (function () {
       ctx.restore();
     }
     if (G.CFG.debug) G.Render.drawJoints(ctx, p.joints, p.x, p.sy, p.facing);
+    // 칼리돈의 엄니 효과가 켜져 있으면: 몸 주위에 붉은 기운이 일렁임
+    if (G.Equip.frenzy(p)) {
+      const t = performance.now() / 1000, y = p.sy - 60, r = 40 + 5 * Math.sin(t * 7);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(p.x, y, 4, p.x, y, r * 1.5);
+      g.addColorStop(0, 'rgba(255, 90, 40, .18)'); g.addColorStop(1, 'rgba(255, 90, 40, 0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(p.x, y, r, r * 1.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     // 기절: 머리 위에 빙글빙글 도는 별
     if (p.stunned > 0 && !p.dead) {
       const t = performance.now() / 1000, hy = p.sy - 128;

@@ -9,6 +9,10 @@
 G.Floor = (function () {
   const S = () => G.Stage, CFG = G.CFG;
   const GATE = { x: 0, z: 8, w: 76, h: 130 };          // 보스방 문 (x는 층마다 floors.js의 gateX)
+  // 보스방 문 그림 (모든 층 공통 '탑의 돌문'): 닫힌 문, 열린 문(빛). 열릴 때 돌판이 땅속으로 가라앉음
+  //   height: 게임 단위 높이, foot: 땅에 닿는 곳(그림 위에서부터 비율), slab: 돌판 자리 [x0, y0, x1, y1] (비율)
+  const GATE_IMG = { closed: 'assets/props/gate_closed.webp', open: 'assets/props/gate_open.webp',
+                     w: 379, h: 558, height: 205, foot: 0.975, slab: [0.313, 0.155, 0.698, 0.905] };
   const st = { n: 1, def: null, phase: 'path', zone: 0, locked: false, gateK: 0, fade: 0, banner: null, t: 0, wall: 0 };
 
   const counter = document.getElementById('mob-count');
@@ -114,10 +118,12 @@ G.Floor = (function () {
       updateCounter();
     } else if (st.phase === 'open') {
       G.Mobs.update(dt, player);
-      st.gateK = Math.min(1, st.gateK + dt / 0.8);
+      if (st.gateK < 1 && Math.random() < dt * 20) G.FX.shake(2, 0.06);      // 돌판이 가라앉으며 땅이 울림
+      if (st.gateK < 1 && Math.random() < dt * 12) G.BFX.dust(GATE.x + (Math.random() - 0.5) * 70, GATE.z + 4, 1, 0.6, '150, 150, 150');
+      st.gateK = Math.min(1, st.gateK + dt / 1.6);
       st.go = 2.5;
       // 문 앞에 서면 들어감
-      if (Math.abs(player.x - GATE.x) < GATE.w * 0.5 && player.z < GATE.z + 24 && !player.dead) { st.phase = 'enter'; st.fade = 0; }
+      if (Math.abs(player.x - GATE.x) < GATE.w * 0.5 && player.z < GATE.z + 24 && !player.dead) { st.phase = 'enter'; st.fade = 0; st.fadeColor = '235, 245, 255'; G.Sound.play('banner'); }
       updateCounter();
     } else if (st.phase === 'enter') {
       st.fade += dt / 0.45;
@@ -129,7 +135,7 @@ G.Floor = (function () {
       G.Boss.update(dt, player);
     }
     if (!isBoss()) G.BFX.update(dt);      // 보스전 밖에서도 먼지·잎 이펙트 진행
-    if (st.fadeOut) { st.fade -= dt / 0.45; if (st.fade <= 0) { st.fade = 0; st.fadeOut = false; } }
+    if (st.fadeOut) { st.fade -= dt / 0.45; if (st.fade <= 0) { st.fade = 0; st.fadeOut = false; st.fadeColor = null; } }
     st.wall = st.locked ? Math.min(1, st.wall + dt / 0.35) : Math.max(0, st.wall - dt / 0.35);
     st.go = Math.max(0, (st.go || 0) - dt);
   }
@@ -182,6 +188,7 @@ G.Floor = (function () {
   function drawGate(ctx) {
     if (isBoss()) return;
     drawWalls(ctx);
+    if (drawStoneGate(ctx)) return;
     const F = S().floorY, x = GATE.x, y = F(GATE.z), w = GATE.w, h = GATE.h, k = st.gateK;
     ctx.save();
     const g = ctx.createLinearGradient(0, y - h, 0, y);
@@ -216,6 +223,46 @@ G.Floor = (function () {
     ctx.restore();
   }
 
+  // 탑의 돌문 (그림): 몹을 다 잡으면 돌판이 땅속으로 가라앉고 문틀 안에서 빛이 쏟아짐
+  function drawStoneGate(ctx) {
+    const G1 = G.Render.getImg(GATE_IMG.closed), G2 = G.Render.getImg(GATE_IMG.open);
+    if (!G1 || !G2) return false;
+    const I = GATE_IMG, F = S().floorY, k = st.gateK, ease = 1 - Math.pow(1 - k, 2);
+    const s = I.height / I.h, w = I.w * s, h = I.h * s, x0 = GATE.x - w / 2, y0 = F(GATE.z) - I.foot * h;
+    const [a, b, c, d] = I.slab, sx = a * I.w, sy = b * I.h, sw = (c - a) * I.w, sh = (d - b) * I.h;
+    ctx.save();
+    // 뒤로 퍼지는 빛 (열릴수록 밝게)
+    if (k > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      const cx = GATE.x, cy = y0 + (b + d) / 2 * h, R = w * 1.3;
+      const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, R);
+      g.addColorStop(0, `rgba(170, 215, 255, ${0.4 * ease * (0.85 + 0.15 * Math.sin(st.t * 4))})`); g.addColorStop(1, 'rgba(170, 215, 255, 0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // 열린 문(빛) 위에 닫힌 문틀을 겹쳐 서서히 바꿈 (위쪽 룬이 켜짐)
+    ctx.drawImage(G2, x0, y0, w, h);
+    if (k < 1) {
+      ctx.globalAlpha = 1 - ease;
+      ctx.drawImage(G1, x0, y0, w, h);
+      ctx.globalAlpha = 1;
+      // 돌판: 문틀 안에서 땅속으로 가라앉음 (문틀 밖으로는 안 보이게 자름)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x0 + a * w, y0 + b * h, (c - a) * w, (d - b) * h); ctx.clip();
+      ctx.drawImage(G1, sx, sy, sw, sh, x0 + a * w, y0 + b * h + ease * (d - b) * h, (c - a) * w, (d - b) * h);
+      ctx.restore();
+    }
+    // 열린 뒤: 문 앞 바닥의 빛 고리 (여기로 들어가라는 표시)
+    if (k >= 1) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(170, 215, 255, ${0.45 + 0.35 * Math.sin(st.t * 5)})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(GATE.x, F(GATE.z) + 10, w * 0.32, 10, 0, 0, Math.PI * 2); ctx.stroke();
+      if (Math.random() < 0.3) G.BFX.motes(GATE.x + (Math.random() - 0.5) * w * 0.3, GATE.z, 10, 1, null, '190, 225, 255');
+    }
+    ctx.restore();
+    return true;
+  }
+
   // 화면 위 글씨(층·보스 이름), "GO ▶", 문으로 들어갈 때 어두워지는 효과 (화면 좌표로 그림)
   function drawOverlay(ctx, viewW, viewH) {
     if (st.banner) {
@@ -247,7 +294,7 @@ G.Floor = (function () {
     }
     G.BossIntro.draw(ctx, viewW, viewH);
     if (st.fade > 0) {
-      ctx.fillStyle = `rgba(0,0,0,${Math.min(1, st.fade)})`;
+      ctx.fillStyle = `rgba(${st.fadeColor || '0,0,0'},${Math.min(1, st.fade)})`;   // 문으로 들어갈 땐 하얀 빛으로
       ctx.fillRect(0, 0, viewW, viewH);
     }
   }

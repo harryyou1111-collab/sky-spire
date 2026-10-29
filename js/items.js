@@ -19,6 +19,13 @@ G.Items = {
     // 휘두를 때 이펙트 색 (칼날 자국 안쪽, 테두리, 칼끝 궤적, 맞을 때 불꽃) + 잎이 흩날림
     fx: { slash: '120, 255, 110', heavy: '170, 255, 90', edge: '220, 255, 200', trail: '150, 255, 130', spark: '160, 255, 120', leaves: true },
   },
+  // 칼리돈의 엄니 (장신구): 체력이 30% 이하로 떨어지면 공격력 50% 증가 — 궁지에 몰린 짐승처럼
+  boar_tusk: {
+    name: '칼리돈의 엄니', slot: 'charm', from: '2F 칼리돈의 멧돼지',
+    icon: 'assets/items/boar_tusk_icon.webp',
+    desc: '사냥꾼들을 삼킨 짐승의 부러진 엄니. 궁지에 몰릴수록 피가 끓어오른다.',
+    special: { kind: 'frenzy', below: 0.3, mul: 1.5, text: '체력 30% 이하일 때 공격력 50% 증가' },
+  },
 };
 
 G.Equip = (function () {
@@ -55,5 +62,10 @@ G.Equip = (function () {
   }
   // 지금 든 무기의 이펙트 색 (없으면 null = 기본 색)
   function fx() { const w = item('weapon'); return (w && w.fx) || null; }
-  return { item, list, atkBonus, special, toggle, set, apply, grant, fx, BASE_WEAPON };
+  // 칼리돈의 엄니: 지금 효과가 켜져 있는가 (체력이 기준 이하)
+  function frenzy(p) {
+    const f = special('frenzy'); p = p || G.player;
+    return !!(f && p && !p.dead && p.hp / G.CFG.player.maxHp <= f.below) && f;
+  }
+  return { item, list, atkBonus, special, toggle, set, apply, grant, fx, frenzy, BASE_WEAPON };
 })();

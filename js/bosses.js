@@ -151,12 +151,14 @@ G.BossDefs = {
     floor: 2,
     name: '칼리돈의 멧돼지',
     title: '사냥꾼들을 삼킨 짐승',
+    reward: { equip: 'boar_tusk' },   // 처음 쓰러뜨리면 장신구 '칼리돈의 엄니' (items.js)
     hp: 420,
     start: { x: 700, z: 60, face: -1 },
     baseX: 700, baseZ: 60,          // 등장 연출 카메라가 볼 곳
     poses: {},
     scale: 0.62,                    // 시트 1픽셀 = 게임 몇 단위 (몸길이 ≈ 290)
     hit: { w: 230, h: 165 },        // 맞는 범위·부딪히는 범위 (가로, 높이)
+    roar: 'boar_roar',              // 울음소리 (sound.js). 등장·돌진·쓰러질 때
     // rim: 'rgba(255, 170, 90, .55)', // 몸 테두리 빛 (폰에서 느려질 수 있어 꺼 둠. 바닥을 밝게 해서 구분됨)
     // 영상 시트: 모두 같은 자리·크기로 맞춤 (Dreamina). fw·fh 한 장면 크기, cx·bottom 발 가운데
     clips: {
@@ -195,6 +197,13 @@ G.BossDefs = {
       at: 0.5,
       charge: { telegraph: 0.55, speed: 900, bounce: 1, stunWall: 1.0, rest: 0.5 },
       tusk: { windup: 0.4, rest: 0.4 },
+    },
+    // 광폭화 (체력 20% 이하): 몸이 붉게 달아오르고 거의 쉬지 않고 돌진 (벽에 부딪혀도 두 번 되돌아옴)
+    //   바위에 부딪히면 여전히 기절하지만 짧음 → 남은 바위를 아껴 두는 게 중요
+    rage: {
+      at: 0.2,
+      charge: { telegraph: 0.45, speed: 1050, bounce: 2, bounceTelegraph: 0.3, stunWall: 0.6, stunRock: 1.7, rest: 0.15 },
+      tusk: { windup: 0.3, rest: 0.2 },
     },
   },
 

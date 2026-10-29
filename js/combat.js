@@ -77,7 +77,9 @@ G.Combat = (function () {
   // 플레이어 공격이 대상에 맞았는지 검사. 맞으면 true
   function playerAttack(p) {
     const a = p.atk, r = attackRange(p);
-    const dmg = a.def.dmg + G.Equip.atkBonus();          // 장비 공격력 더하기 (items.js)
+    let dmg = a.def.dmg + G.Equip.atkBonus();            // 장비 공격력 더하기 (items.js)
+    const fz = G.Equip.frenzy(p);                       // 칼리돈의 엄니: 체력이 낮으면 공격력 증가
+    if (fz) dmg = Math.round(dmg * fz.mul);
     let hitAny = false, firstHit = null;
     for (const t of targets) {
       if (t.active === false) continue;
@@ -108,7 +110,7 @@ G.Combat = (function () {
       const cx = t.x - a.dir.x * t.w * 0.3;
       G.FX.hitstop(a.def.hitstop);
       G.FX.spark(cx, S().screenY(t.z, ch), push, a.def.dmg >= 15 ? 1 : 0.5);
-      G.FX.text(t.x, S().screenY(t.z, t.h + t.height) - 6, String(dmg));
+      G.FX.text(t.x, S().screenY(t.z, t.h + t.height) - 6, String(dmg), fz ? '#ff9a4a' : undefined);
     }
     // 판의 뿔검: 3타가 맞으면 맞은 곳에서 가시덩굴이 솟아 주변 적에게 추가 피해 (한 번 휘두를 때 한 번)
     const th = firstHit && a.kind === 'side3' && !a.thorned && G.Equip.special('thorns');

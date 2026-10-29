@@ -67,7 +67,7 @@ G.BossIntro = (function () {
       // 포효: 화면 흔들림 + 빛 + 먼지
       if (!it.roared && it.t >= T.roar) {
         it.roared = true;
-        G.Sound.play('roar');
+        G.Sound.play(D.roar || 'roar');                // 보스마다 다른 울음 (bosses.js의 roar)
         G.FX.shake(14, 0.7);
         G.BFX.flash(D.baseX, D.baseZ, 160, 420, D.theme.moon, 0.5);
         const dc = D.theme.dust || '90, 80, 60';
