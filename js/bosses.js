@@ -143,6 +143,60 @@ G.BossDefs = {
   },
 
   // ------------------------------------------------------------------
+  // 2층 — 칼리돈의 멧돼지: 수많은 사냥꾼을 쓰러뜨린 거대한 멧돼지. 전투장을 뛰어다니는 보스 (beast.js)
+  //   돌진을 옆으로 피해 바위·벽에 부딪히게 만들면 기절 → 공격 기회
+  // ------------------------------------------------------------------
+  boar: {
+    kind: 'beast',
+    floor: 2,
+    name: '칼리돈의 멧돼지',
+    title: '사냥꾼들을 삼킨 짐승',
+    hp: 420,
+    start: { x: 700, z: 60, face: -1 },
+    baseX: 700, baseZ: 60,          // 등장 연출 카메라가 볼 곳
+    poses: {},
+    scale: 0.62,                    // 시트 1픽셀 = 게임 몇 단위 (몸길이 ≈ 290)
+    hit: { w: 230, h: 165 },        // 맞는 범위·부딪히는 범위 (가로, 높이)
+    // rim: 'rgba(255, 170, 90, .55)', // 몸 테두리 빛 (폰에서 느려질 수 있어 꺼 둠. 바닥을 밝게 해서 구분됨)
+    // 영상 시트: 모두 같은 자리·크기로 맞춤 (Dreamina). fw·fh 한 장면 크기, cx·bottom 발 가운데
+    clips: {
+      idle: { sheets: [0, 1].map(i => `assets/bosses/boar/idle_${i}.webp`), count: 31, fw: 620, fh: 330, cx: 302.5, bottom: 318.5 },
+      run:  { sheets: [0, 1].map(i => `assets/bosses/boar/run_${i}.webp`), count: 20, fw: 620, fh: 330, cx: 302.5, bottom: 318.5 },
+      stun: { sheets: [0, 1, 2].map(i => `assets/bosses/boar/stun_${i}.webp`), count: 41, fw: 620, fh: 330, cx: 302.5, bottom: 318.5,
+              seg: { hit: [0, 3], dazed: [3, 29], recover: [29, 40] } },
+      tusk: { sheets: [0, 1, 2].map(i => `assets/bosses/boar/tusk_${i}.webp`), count: 43, fw: 620, fh: 330, cx: 302.5, bottom: 318.5,
+              seg: { lower: [0, 18], strike: [19, 29], recover: [29, 42] } },
+    },
+    theme: {
+      bg: 'assets/bosses/boar/bg.jpg',          // 가을 사냥터
+      horizon: 0.60,
+      sky: ['#2a1a12', '#7a4a2a', '#1e140e'],
+      moon: '255, 190, 120',
+      leaves: false,
+      dust: '140, 105, 70',
+      silhouette: 'none',
+      // 바닥은 멧돼지(어두운 갈색)보다 밝은 흙색
+      ground: { far: '#4a3626', near: '#6e5236', line: '#7d5f3e', front: '#24180f', wall: '#120c07',
+                side: ['#3b2a1c', '#5a4129', '#33251a'], top: '#7a5c3c', rim: '#a07a4e' },
+      // 몹 구간에서 구역을 막는 벽: 사냥용 나무 목책
+      wall: { src: 'assets/props/fence.webp', w: 179, h: 300, height: 92 },
+    },
+    patterns: {
+      // 돌진: 예고 줄을 보고 옆으로 피하기. 바위에 부딪히면 오래 기절, 벽은 짧게
+      charge: { weight: 3, telegraph: 1.0, track: 0.65, speed: 760, width: 70, dmg: 24,
+                stunWall: 1.3, stunRock: 2.6, rest: 0.8, bounce: 0, bounceTelegraph: 0.45 },
+      // 엄니 올려치기: 앞에 붙어 있으면. 예고(앞쪽 붉은 반원)를 보고 물러나기
+      tusk: { weight: 1, range: 190, windup: 0.55, strike: 0.22, recover: 0.55, dmg: 20, rest: 0.6 },
+    },
+    // 체력 50% 이하: 더 빠르고, 벽에 부딪혀도 한 번 되돌아 돌진
+    phase2: {
+      at: 0.5,
+      charge: { telegraph: 0.75, speed: 900, bounce: 1, stunWall: 1.0, rest: 0.5 },
+      tusk: { windup: 0.4, rest: 0.4 },
+    },
+  },
+
+  // ------------------------------------------------------------------
   // 8층 — 판: 숲과 야생, 공포(panic)의 신. 염소 뿔과 귀, 수염 (처음엔 1층 보스였음)
   // ------------------------------------------------------------------
   pan: {

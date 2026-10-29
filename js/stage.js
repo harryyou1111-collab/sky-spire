@@ -23,6 +23,15 @@ G.Stage = (function () {
     { x: 130, z: 70, rx: 36, rz: 18, h: 44 },    // 왼쪽 낮은 기둥
     { x: 790, z: 40, rx: 40, rz: 20, h: 90 },    // 오른쪽 높은 기둥
   ];
+  // 지형물 그림 (층마다 다른 발판·장애물). 기둥 목록에 prop: '이름'을 적으면 이 그림으로 그림
+  //   w, h: 그림 크기(픽셀), top: 윗면 가운데 높이(그림 위에서부터 비율), foot: 땅에 닿는 가운데 높이(비율)
+  //   widthOf: 그림 너비 중 충돌 범위(rx*2)에 해당하는 비율 → 그림 크기와 높이(h)는 rx에 맞춰 자동으로 정해짐
+  const PROPS = {
+    rock_flat: { src: 'assets/props/rock_flat.webp', w: 420, h: 203, top: 0.27, foot: 0.86, widthOf: 0.95 },
+    rock_tall: { src: 'assets/props/rock_tall.webp', w: 420, h: 491, top: 0.12, foot: 0.93, widthOf: 0.95 },
+    stump:     { src: 'assets/props/stump.webp',     w: 420, h: 350, top: 0.14, foot: 0.80, widthOf: 0.6 },
+  };
+  const propScale = p => 2 * p.rx / (PROPS[p.prop].w * PROPS[p.prop].widthOf);
   const stage = {
     pillars: BOSS_PILLARS.slice(),
     minX: 0, maxX: CFG.ARENA_W,     // 지금 움직일 수 있는 범위 (몹 구간에서 구역을 잠글 때 좁아짐)
@@ -32,6 +41,11 @@ G.Stage = (function () {
   function setLayout(width, pillars) {
     CFG.ARENA_W = width;
     stage.pillars = (pillars || BOSS_PILLARS).map(p => Object.assign({}, p));
+    // 그림 지형물은 높이를 그림에서 계산 (그림 윗면 = 올라서는 높이)
+    for (const p of stage.pillars) if (p.prop && PROPS[p.prop]) {
+      const P = PROPS[p.prop]; p.h = Math.round((P.foot - P.top) * P.h * propScale(p));
+      G.Render.getImg(P.src);
+    }
     stage.minX = 0; stage.maxX = width;
   }
   // 움직일 수 있는 범위 (구역 잠금)
@@ -167,6 +181,21 @@ G.Stage = (function () {
   function drawPillar(ctx, p, highlight) {
     const C = ground();
     const cx = p.x, top = floorY(p.z) - p.h, bot = floorY(p.z);
+    // 지형물 그림 (prop)
+    if (p.prop && PROPS[p.prop]) {
+      const P = PROPS[p.prop], im = G.Render.getImg(P.src);
+      if (im) {
+        const k = propScale(p), w = P.w * k, h = P.h * k;
+        ctx.fillStyle = 'rgba(0,0,0,.35)';
+        ctx.beginPath(); ctx.ellipse(cx, bot + 2, p.rx + 8, p.rz * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.drawImage(im, cx - w / 2, bot - P.foot * h, w, h);
+        if (highlight) {
+          ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(232, 212, 154, .8)';
+          ctx.beginPath(); ctx.ellipse(cx, top, p.rx * 0.92, p.rz * 0.92, 0, 0, Math.PI * 2); ctx.stroke();
+        }
+        return;
+      }
+    }
     // 3D 기둥 그림이 준비됐으면 그것을 그림 (hero3d.js가 한 번 그려서 저장해 둠)
     const img = G.Hero3D && G.Hero3D.pillarImg && G.Hero3D.pillarImg(p);
     if (img) {
@@ -222,5 +251,8 @@ G.Stage = (function () {
     });
   }
 
-  return { data: stage, DEPTH, floorY, screenY, support, move, drawFloor, drawables, setLayout, setBounds };
+  // 지형물 부수기 (돌진하는 보스가 부딪혔을 때)
+  function breakPillar(p) { stage.pillars = stage.pillars.filter(q => q !== p); }
+
+  return { data: stage, DEPTH, PROPS, floorY, screenY, support, move, drawFloor, drawables, setLayout, setBounds, breakPillar };
 })();

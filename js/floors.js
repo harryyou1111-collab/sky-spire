@@ -15,6 +15,37 @@ G.Floors = {
     power: 1,
   },
 
+  // 2층: 칼리돈의 멧돼지. 몹 구간(가을 사냥터) → 보스전
+  //   지형물: 납작한 바위·그루터기 (prop 그림, stage.js의 PROPS). 보스방의 바위·그루터기는 멧돼지가 부딪히면 부서짐(breakable)
+  2: {
+    boss: 'boar',
+    power: 1.1,
+    path: {
+      zones: [
+        { x0: 0,    x1: 900,  mobs: [{ type: 'satyr_spear', n: 3 }] },
+        { x0: 900,  x1: 1800, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 1 }, { type: 'wisp', n: 1 }] },
+        { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 }] },
+      ],
+      end: 3300,
+      gateX: 3080,
+      pillars: [
+        { x: 160,  z: 70, rx: 46, rz: 20, prop: 'rock_flat' },
+        { x: 640,  z: 34, rx: 34, rz: 18, prop: 'stump' },
+        { x: 1180, z: 84, rx: 50, rz: 22, prop: 'rock_flat' },
+        { x: 1560, z: 32, rx: 36, rz: 18, prop: 'stump' },
+        { x: 2080, z: 64, rx: 46, rz: 20, prop: 'rock_flat' },
+        { x: 2480, z: 38, rx: 36, rz: 18, prop: 'stump' },
+        { x: 2900, z: 82, rx: 44, rz: 20, prop: 'rock_flat' },
+      ],
+    },
+    // 보스방: 멧돼지를 유인해 부딪히게 할 바위 2개 + 그루터기 1개 (부서지면 사라짐)
+    bossPillars: [
+      { x: 150, z: 82, rx: 42, rz: 20, prop: 'rock_tall', breakable: true },
+      { x: 770, z: 36, rx: 42, rz: 20, prop: 'rock_tall', breakable: true },
+      { x: 450, z: 12, rx: 32, rz: 16, prop: 'stump', breakable: true },
+    ],
+  },
+
   // 8층: 판 (처음 만든 보스. 1층에서 옮겨 옴 — 길·몹 구성은 그대로)
   8: {
     boss: 'pan',

@@ -155,6 +155,20 @@ G.Floor = (function () {
   function drawWalls(ctx) {
     if (st.wall <= 0 || !st.lockZ) return;
     const F = S().floorY;
+    // 층마다 다른 벽 그림 (bosses.js의 theme.wall: { src, w, h, height }) — 깊이를 따라 줄지어 솟아오름
+    const WL = G.Boss.def && G.Boss.def.theme && G.Boss.def.theme.wall;
+    const wim = WL && G.Render.getImg(WL.src);
+    if (wim) {
+      const hh = WL.height * st.wall, ww = WL.w / WL.h * WL.height;
+      for (const x of [st.lockZ.x0, st.lockZ.x1]) {
+        if (x <= 0) continue;
+        for (let z = 0; z <= CFG.DEPTH + 1; z += 16) {
+          const y = F(z), j = Math.sin(x * 0.7 + z * 1.3) * 4;
+          ctx.drawImage(wim, 0, 0, WL.w, WL.h * st.wall, x - ww / 2 + j, y - hh, ww, hh);
+        }
+      }
+      return;
+    }
     for (const x of [st.lockZ.x0, st.lockZ.x1]) {
       if (x <= 0) continue;
       for (let z = 4; z <= CFG.DEPTH; z += 7) for (let j = 0; j < 2; j++) {
