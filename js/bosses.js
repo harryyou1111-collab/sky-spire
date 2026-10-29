@@ -187,22 +187,22 @@ G.BossDefs = {
       // 돌진: 예고 줄을 보고 옆으로 피하기. 바위에 부딪히면 오래 기절, 벽은 짧게
       //   기술을 쓰는 중(돌진 준비·돌진·엄니)에는 공격이 막힘 → 쉬는 틈이나 기절했을 때만 때릴 수 있음
       //   stunPlayer: 돌진에 맞으면 주인공이 그 시간(초) 동안 기절
-      charge: { weight: 3, telegraph: 0.7, track: 0.6, speed: 760, width: 70, dmg: 24, stunPlayer: 2,
-                stunWall: 1.3, stunRock: 2.6, rest: 0.8, bounce: 0, bounceTelegraph: 0.4 },
+      charge: { weight: 3, telegraph: 0.9, track: 0.6, speed: 760, width: 70, dmg: 24, stunPlayer: 2,
+                stunWall: 1.3, stunRock: 2.6, rest: 0.8, bounce: 0, bounceTelegraph: 0.55 },
       // 엄니 올려치기: 앞에 붙어 있으면. 예고(앞쪽 붉은 반원)를 보고 물러나기
       tusk: { weight: 1, range: 190, windup: 0.55, strike: 0.22, recover: 0.55, dmg: 20, rest: 0.6 },
     },
     // 체력 50% 이하: 더 빠르고, 벽에 부딪혀도 한 번 되돌아 돌진
     phase2: {
       at: 0.5,
-      charge: { telegraph: 0.55, speed: 900, bounce: 1, stunWall: 1.0, rest: 0.5 },
+      charge: { telegraph: 0.75, speed: 900, bounce: 1, stunWall: 1.0, rest: 0.5 },
       tusk: { windup: 0.4, rest: 0.4 },
     },
-    // 광폭화 (체력 20% 이하): 몸이 붉게 달아오르고 거의 쉬지 않고 돌진 (벽에 부딪혀도 두 번 되돌아옴)
+    // 광폭화 (체력 20% 이하): 몸이 붉게 달아오르고 거의 쉬지 않고 돌진 (돌진은 한 번에 최대 2번: 벽에 부딪히면 한 번 되돌아옴)
     //   바위에 부딪히면 여전히 기절하지만 짧음 → 남은 바위를 아껴 두는 게 중요
     rage: {
       at: 0.2,
-      charge: { telegraph: 0.45, speed: 1050, bounce: 2, bounceTelegraph: 0.3, stunWall: 0.6, stunRock: 1.7, rest: 0.15 },
+      charge: { telegraph: 0.6, speed: 1050, bounce: 1, bounceTelegraph: 0.45, stunWall: 0.6, stunRock: 1.7, rest: 0.15 },
       tusk: { windup: 0.3, rest: 0.2 },
     },
   },
