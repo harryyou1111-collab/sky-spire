@@ -204,8 +204,6 @@ G.BossDefs = {
       // 바닥은 멧돼지(어두운 갈색)보다 밝은 흙색
       ground: { far: '#4a3626', near: '#6e5236', line: '#7d5f3e', front: '#24180f', wall: '#120c07',
                 side: ['#3b2a1c', '#5a4129', '#33251a'], top: '#7a5c3c', rim: '#a07a4e' },
-      // 몹 구간에서 구역을 막는 벽: 사냥용 나무 목책
-      wall: { src: 'assets/props/fence.webp', w: 179, h: 300, height: 92 },
     },
     patterns: {
       // 돌진: 예고 줄을 보고 옆으로 피하기. 바위에 부딪히면 오래 기절, 벽은 짧게
@@ -272,7 +270,7 @@ G.BossDefs = {
       lose: { 1: '땅을 기는 것이 하늘을 넘보다니.', 3: '몇 번을 올라와도, 떨어질 뿐이야.' },
       win: '하늘이… 멀어진다…',
     },
-    hp: 460,
+    hp: 520,
     start: { x: 700, z: 80, face: -1 },
     baseX: 700, baseZ: 80,          // 등장 연출 카메라가 볼 곳
     poses: {},
@@ -281,7 +279,8 @@ G.BossDefs = {
     cell: { fw: 532, fh: 549, cx: 220, cy: 385 },
     hover: 120,                     // 떠 있는 높이 (발끝). 점프해서 공격하면 닿음
     keep: 210,                      // 떠 있을 때 플레이어와 가로 거리
-    speed: 150,                     // 떠다니는 속도
+    speed: 210,                     // 떠다니는 속도
+    counter: 0.35,                  // 떠 있을 때 맞으면 이 시간 안에 반격
     zMin: 80,                       // 너무 안쪽으로 가면 날개가 화면 위로 잘려서 이보다 앞에서만 날아다님
     hit: { w: 120, h: 130, legs: 40, wLand: 170 },   // 맞는 범위 (가로, 높이, 발끝~몸통 사이 빈 곳, 땅에 앉았을 때 가로)
     starH: 0,                       // 지쳤을 때 별 높이 (땅에 앉은 기준점에서)
@@ -312,26 +311,26 @@ G.BossDefs = {
     patterns: {
       // 급강하: 붉은 원이 플레이어를 따라오다(track 비율까지) 멈춤 → 원으로 내리꽂힘. 원 밖으로 피하기
       //   radius: 원 크기, swoop: 내리꽂히는 시간, stun: 땅에 박혀 지치는 시간, stunRock: 바위 기둥에 떨어졌을 때
-      dive: { telegraph: 1.0, track: 0.65, rise: 15, swoop: 0.32, radius: 72, dmg: 22, stunPlayer: 0,
-              stun: 2.0, stunRock: 3.2, takeoff: 1.0, rest: 0.9, bounce: 0, bounceTelegraph: 0.55 },
+      dive: { telegraph: 0.7, track: 0.8, rise: 15, swoop: 0.2, radius: 80, dmg: 30, stunPlayer: 0,
+              stun: 1.4, stunRock: 2.6, takeoff: 0.8, rest: 0.5, bounce: 0, bounceTelegraph: 0.4 },
       // 깃털 비: 높이 떠서 바닥 여러 곳(하나는 플레이어 자리)에 깃털을 쏟아부음. 원 밖으로 피하거나 점프
-      feathers: { telegraph: 0.9, rise: 0, count: 5, spread: 300, radius: 38, dmg: 12, flight: 0.45, stagger: 0.06, rest: 0.9 },
+      feathers: { telegraph: 0.6, rise: 0, count: 6, spread: 300, radius: 42, dmg: 18, flight: 0.25, stagger: 0.03, rest: 0.5 },
       // 할퀴기: 가까이(near) 있으면 낮게 내려와 발톱으로 할큄 → 할퀸 뒤(hold) 잠깐 맞음
-      rake: { near: 230, stand: 110, alt: 30, windup: 0.55, strike: 0.25, hold: 0.6, rise: 0.8, range: 190, dmg: 18, rest: 0.7 },
+      rake: { near: 230, stand: 110, alt: 30, windup: 0.4, strike: 0.18, hold: 0.4, rise: 0.7, range: 210, dmg: 25, rest: 0.4 },
     },
     // 체력 50% 이하: 바위에 안 부딪히면 튀어 올라 한 번 더 급강하, 깃털이 늘어남
     phase2: {
       at: 0.5,
-      dive: { telegraph: 0.85, bounce: 1, rest: 0.6 },
-      feathers: { count: 7, telegraph: 0.8 },
-      rake: { windup: 0.45 },
+      dive: { telegraph: 0.6, bounce: 1, rest: 0.35 },
+      feathers: { count: 8, telegraph: 0.5 },
+      rake: { windup: 0.32 },
     },
-    // 광폭화 (체력 20% 이하): 몸이 붉게 달아오르고 거의 쉬지 않음 (급강하는 한 번에 최대 2번)
+    // 광폭화 (체력 20% 이하): 몸이 붉게 달아오르고 거의 쉬지 않음 (급강하는 한 번에 최대 3번)
     rage: {
       at: 0.2,
-      dive: { telegraph: 0.7, bounce: 1, bounceTelegraph: 0.45, stun: 1.3, stunRock: 2.2, rest: 0.3 },
-      feathers: { count: 9, telegraph: 0.65, rest: 0.4 },
-      rake: { windup: 0.38, hold: 0.45, rest: 0.3 },
+      dive: { telegraph: 0.5, bounce: 2, bounceTelegraph: 0.35, stun: 1.0, stunRock: 1.9, rest: 0.15 },
+      feathers: { count: 10, telegraph: 0.45, rest: 0.25 },
+      rake: { windup: 0.28, hold: 0.3, rest: 0.2 },
     },
   },
 

@@ -309,6 +309,7 @@ G.Flyer = (function () {
       if (st.act && st.act.kind === 'dive' && st.act.phase === 'stun') st.act.t = st.act.stun;   // 바로 날아오름
     }
     st.flash = 0.08;
+    if (!st.act) st.timer = Math.min(st.timer, def.counter || 0.3);   // 떠 있을 때 맞으면 곧바로 반격
     updateUI();
     if (st.hp <= 0) {
       st.mode = 'dying'; st.timer = 2.6; st.act = null; st.marks = [];

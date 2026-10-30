@@ -159,30 +159,89 @@ G.Floor = (function () {
 
   // ---------- 그리기 ----------
   // 구역 경계의 가시덩굴 벽 (잠겼을 때 솟아오름)
+  // 구역 칸막이 (모든 층 공통): 탑의 봉인 — 룬이 새겨진 돌기둥이 땅에서 솟고, 기둥 사이에 빛의 막이 쳐짐
+  //   구역의 몹을 다 잡으면 막이 걷히고 기둥이 가라앉음 (st.wall: 0~1)
+  const SEAL = { post: 92, curtain: 128, slant: 0.32, glow: '255, 214, 140', rune: '255, 236, 190' };
   function drawWalls(ctx) {
     if (st.wall <= 0 || !st.lockZ) return;
-    const F = S().floorY;
-    // 층마다 다른 벽 그림 (bosses.js의 theme.wall: { src, w, h, height }) — 깊이를 따라 줄지어 솟아오름
-    const WL = G.Boss.def && G.Boss.def.theme && G.Boss.def.theme.wall;
-    const wim = WL && G.Render.getImg(WL.src);
-    if (wim) {
-      const hh = WL.height * st.wall, ww = WL.w / WL.h * WL.height;
-      for (const x of [st.lockZ.x0, st.lockZ.x1]) {
-        if (x <= 0) continue;
-        for (let z = 0; z <= CFG.DEPTH + 1; z += 16) {
-          const y = F(z), j = Math.sin(x * 0.7 + z * 1.3) * 4;
-          ctx.drawImage(wim, 0, 0, WL.w, WL.h * st.wall, x - ww / 2 + j, y - hh, ww, hh);
-        }
-      }
-      return;
-    }
+    const F = S().floorY, D = CFG.DEPTH, k = st.wall, t = st.t;
     for (const x of [st.lockZ.x0, st.lockZ.x1]) {
       if (x <= 0) continue;
-      for (let z = 4; z <= CFG.DEPTH; z += 7) for (let j = 0; j < 2; j++) {
-        const seed = Math.floor(x * 7 + z * 13 + j * 31) + 1;
-        G.BFX.vine(ctx, x + Math.sin(z * 1.7 + j * 2) * 14, F(z), (55 + (seed % 40)) * st.wall, Math.sin(seed) * 14, seed, Math.sin(st.t * 3 + z + j) * 0.3, 5);
+      const X = z => x + (z - D / 2) * SEAL.slant;          // 깊이를 따라 살짝 비스듬히 (막이 옆으로 보이게)
+      const posts = [0, D / 2, D];
+      ctx.save();
+      // 빛의 막 (기둥이 다 솟은 뒤에 펼쳐짐)
+      const ck = Math.max(0, Math.min(1, (k - 0.35) / 0.65));
+      if (ck > 0) {
+        const H = SEAL.curtain * ck, pulse = 0.75 + 0.25 * Math.sin(t * 3 + x);
+        ctx.globalCompositeOperation = 'lighter';
+        const quad = () => { ctx.beginPath(); ctx.moveTo(X(0), F(0)); ctx.lineTo(X(0), F(0) - H); ctx.lineTo(X(D), F(D) - H); ctx.lineTo(X(D), F(D)); ctx.closePath(); };
+        const g = ctx.createLinearGradient(0, F(D), 0, F(0) - H);
+        g.addColorStop(0, `rgba(${SEAL.glow}, ${0.62 * pulse})`); g.addColorStop(0.55, `rgba(${SEAL.glow}, ${0.28 * pulse})`); g.addColorStop(1, `rgba(${SEAL.glow}, 0.04)`);
+        ctx.fillStyle = g; quad(); ctx.fill();
+        ctx.strokeStyle = `rgba(${SEAL.rune}, ${0.35 * ck * pulse})`; ctx.lineWidth = 1.5;   // 막의 윗선
+        ctx.beginPath(); ctx.moveTo(X(0), F(0) - H); ctx.lineTo(X(D), F(D) - H); ctx.stroke();
+        // 위로 흘러가는 빛줄 + 떠오르는 룬
+        ctx.save(); quad(); ctx.clip();
+        ctx.strokeStyle = `rgba(${SEAL.rune}, ${0.35 * ck})`; ctx.lineWidth = 1;
+        for (let i = 0; i < 6; i++) {
+          const u = ((t * 0.45 + i / 6) % 1), z = u * D;
+          ctx.beginPath(); ctx.moveTo(X(z), F(z)); ctx.lineTo(X(z), F(z) - H); ctx.stroke();
+        }
+        for (let i = 0; i < 7; i++) {
+          const z = ((i * 37 + x) % D), u = (t * 0.35 + i * 0.27) % 1, y = F(z) - u * H, a = Math.sin(u * Math.PI) * ck;
+          rune(ctx, X(z), y, 5, (i * 7 + Math.floor(x)) % 4, `rgba(${SEAL.rune}, ${0.75 * a})`);
+        }
+        ctx.restore();
+        // 바닥 경계선
+        ctx.strokeStyle = `rgba(${SEAL.glow}, ${0.7 * ck * pulse})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(X(0), F(0)); ctx.lineTo(X(D), F(D)); ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
       }
+      // 룬 돌기둥 (안쪽부터 그려서 앞 기둥이 위에)
+      const pk = Math.min(1, k / 0.6), ph = SEAL.post * (1 - Math.pow(1 - pk, 3));
+      for (const z of posts) post(ctx, X(z), F(z), ph, ck, t + z);
+      ctx.restore();
     }
+  }
+  // 돌기둥 한 개: 위가 좁은 사각 기둥 + 머릿돌 + 가운데 빛나는 룬
+  function post(ctx, x, y, h, glow, t) {
+    if (h < 2) return;
+    const w0 = 13, w1 = 10;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x - 30, y - h - 20, 60, h + 20); ctx.clip();     // 땅속에서 솟아오르는 느낌 (아래는 바닥선에서 자름)
+    const top = y - SEAL.post;                                                   // 기둥 모양은 고정, 솟는 만큼 아래로 내려 그림
+    const dy = SEAL.post - h;
+    ctx.translate(0, dy);
+    // 그림자 면 / 밝은 면
+    ctx.fillStyle = '#2b2c31';
+    ctx.beginPath(); ctx.moveTo(x - w0, y); ctx.lineTo(x - w1, top + 8); ctx.lineTo(x + w1, top + 8); ctx.lineTo(x + w0, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#44464e';
+    ctx.beginPath(); ctx.moveTo(x - w0, y); ctx.lineTo(x - w1, top + 8); ctx.lineTo(x - 2, top + 8); ctx.lineTo(x - 3, y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#121216'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x - w0, y); ctx.lineTo(x - w1, top + 8); ctx.lineTo(x + w1, top + 8); ctx.lineTo(x + w0, y); ctx.stroke();
+    // 머릿돌
+    ctx.fillStyle = '#575a63'; ctx.strokeStyle = '#121216';
+    ctx.beginPath(); ctx.moveTo(x - w1 - 4, top + 9); ctx.lineTo(x - w1, top); ctx.lineTo(x, top - 7); ctx.lineTo(x + w1, top); ctx.lineTo(x + w1 + 4, top + 9); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 룬 (봉인이 켜지면 빛남)
+    const a = 0.35 + 0.65 * glow * (0.75 + 0.25 * Math.sin(t * 4));
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) rune(ctx, x, top + 24 + i * 22, 5, i, `rgba(${SEAL.glow}, ${a})`);
+    if (glow > 0) {
+      const g = ctx.createRadialGradient(x, top + 2, 1, x, top + 2, 26);
+      g.addColorStop(0, `rgba(${SEAL.glow}, ${0.55 * glow})`); g.addColorStop(1, `rgba(${SEAL.glow}, 0)`);
+      ctx.fillStyle = g; ctx.fillRect(x - 26, top - 24, 52, 52);
+    }
+    ctx.restore();
+  }
+  // 룬 글자 4가지 (간단한 선 모양)
+  function rune(ctx, x, y, r, kind, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.beginPath();
+    if (kind === 0) { ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); ctx.moveTo(x, y - r * 0.4); ctx.lineTo(x + r * 0.7, y - r); ctx.moveTo(x, y); ctx.lineTo(x + r * 0.7, y - r * 0.4); }
+    else if (kind === 1) { ctx.moveTo(x - r * 0.6, y - r); ctx.lineTo(x + r * 0.6, y + r); ctx.moveTo(x + r * 0.6, y - r); ctx.lineTo(x - r * 0.6, y + r); }
+    else if (kind === 2) { ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.7, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r * 0.7, y); ctx.closePath(); }
+    else { ctx.moveTo(x - r * 0.6, y + r); ctx.lineTo(x - r * 0.6, y - r); ctx.lineTo(x + r * 0.6, y); ctx.moveTo(x + r * 0.6, y - r); ctx.lineTo(x + r * 0.6, y + r); }
+    ctx.stroke();
   }
 
   // 보스방 문: 돌기둥 두 개 + 위에 가로돌. 닫혀 있으면 가시덩굴이 막고, 열리면 덩굴이 걷히고 빛이 새어 나옴
