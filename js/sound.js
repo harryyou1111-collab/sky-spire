@@ -16,13 +16,12 @@ G.Sound = (function () {
   const vol = () => (G.Save.data.settings || (G.Save.data.settings = { sfx: 0.8, bgm: 0.7 }));
 
   // 있는 효과음 파일 (이름: 기본 크기)
-  const SFX = { swing: 0.8, swing3: 0.9, hit: 0.9, smash: 1, roar: 1, boar_roar: 1 };   // boar_roar: 멧돼지 울음 (포효를 높고 거칠게)
+  const SFX = { swing: 0.8, swing3: 0.9, hit: 0.9, smash: 1, roar: 1, boar_roar: 1, harpy_cry: 0.9 };   // boar_roar: 멧돼지 울음, harpy_cry: 하피 여왕 울음
   // 다른 파일을 빌려 쓰는 소리: 이름 → [파일 이름, { rate: 높이(1 = 그대로), vol: 크기 }]
   const ALIAS = {
     swing2: ['swing', { rate: 1.08 }],
     hit_heavy: ['hit', { rate: 0.85, vol: 1 }],
     hit_boss: ['hit', { rate: 0.72, vol: 1 }],
-    harpy_cry: ['roar', { rate: 1.7, vol: 0.8 }],   // 하피 여왕 울음 (포효를 높게. 나중에 전용 소리로 바꿀 자리)
   };
   // 배경음 (파일을 넣으면 켬). loop: [반복 시작, 반복 끝](초) — 처음엔 0초부터 재생하고, 끝에 닿으면 반복 시작으로 돌아감
   //   (전주는 한 번만 나오고 본 곡만 반복. 박자가 맞는 지점을 골라 둬서 이음매가 안 들림)

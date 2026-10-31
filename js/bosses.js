@@ -240,7 +240,7 @@ G.BossDefs = {
     name: '하피 여왕',
     title: '구름 위 둥지의 주인',
     reward: { equip: 'harpy_feather' },   // 처음 쓰러뜨리면 무기 '여왕의 깃털 검' (items.js)
-    // 대화 장면 (talk.js). 목소리 파일이 오면 voice를 채움
+    // 대화 장면 (talk.js). 하피 목소리는 메아리 + 살짝 높은 겹소리를 섞어 괴물 느낌
     talk: {
       bg: 'assets/bosses/harpy/bg.jpg',
       cast: {
@@ -248,9 +248,9 @@ G.BossDefs = {
         hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
-        { who: 'harpy', face: 'base', text: '또 하나… 기어 올라온 먹잇감이구나.' },
-        { who: 'hero', face: 'serious', text: '먹잇감이 될 생각은 없어.' },
-        { who: 'harpy', face: 'base', text: '하늘은 날개 가진 자의 것. 땅을 기는 것은 떨어질 뿐!', sfx: 'harpy_cry', shake: true },
+        { who: 'harpy', face: 'base', text: '또 하나… 기어 올라온 먹잇감이구나.', voice: 'assets/story/voice/harpy_01.mp3' },
+        { who: 'hero', face: 'serious', text: '먹잇감이 될 생각은 없어.', voice: 'assets/story/voice/hero_h1.mp3' },
+        { who: 'harpy', face: 'base', text: '하늘은 날개 가진 자의 것. 땅을 기는 것은 떨어질 뿐!', voice: 'assets/story/voice/harpy_02.mp3', voiceDelay: 1.3, sfx: 'harpy_cry', shake: true },
       ],
     },
     talkWin: {
@@ -260,9 +260,9 @@ G.BossDefs = {
         hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
-        { who: 'harpy', face: 'base', text: '어째서… 날개도 없는 것이…' },
-        { who: 'hero', face: 'tired', text: '날개는 없어도, 올라가는 법은 알아.' },
-        { who: 'hero', face: 'base', text: '이 깃털, 가져가지.', flash: true },
+        { who: 'harpy', face: 'base', text: '어째서… 날개도 없는 것이…', voice: 'assets/story/voice/harpy_w1.mp3' },
+        { who: 'hero', face: 'tired', text: '날개는 없어도, 올라가는 법은 알아.', voice: 'assets/story/voice/hero_h2.mp3' },
+        { who: 'hero', face: 'base', text: '이 깃털, 가져가지.', voice: 'assets/story/voice/hero_h3.mp3', flash: true },
       ],
     },
     // 진 횟수에 따라 보스가 하는 말 / 이겼을 때 (대화 장면이 없을 때만)
