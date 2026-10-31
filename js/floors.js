@@ -53,6 +53,8 @@ G.Floors = {
   3: {
     boss: 'harpy',
     power: 1.2,
+    jumps: 3,                                 // 구름 위 거센 바람: 이 층에서는 3단 점프 (높은 바위 기둥에 오르기 쉽게)
+    hint: '거센 바람이 몸을 띄운다 — 3단 점프 가능',
     path: {
       zones: [
         { x0: 0,    x1: 900,  mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'wisp', n: 1 }] },

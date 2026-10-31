@@ -239,7 +239,7 @@ G.BossDefs = {
     floor: 3,
     name: '하피 여왕',
     title: '구름 위 둥지의 주인',
-    reward: { equip: 'harpy_feather' },   // 처음 쓰러뜨리면 무기 '여왕의 깃털 검' (items.js)
+    reward: { equip: 'harpy_feather' },   // 처음 쓰러뜨리면 장신구 '여왕의 깃털' — 어느 층에서든 3단 점프 (items.js)
     // 대화 장면 (talk.js). 하피 목소리는 메아리 + 살짝 높은 겹소리를 섞어 괴물 느낌
     talk: {
       bg: 'assets/bosses/harpy/bg.jpg',

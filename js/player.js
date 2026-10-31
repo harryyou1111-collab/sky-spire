@@ -293,7 +293,7 @@ G.Player = (function () {
 
     if (p.jumpBuf > 0) {
       if (p.coyote > 0) jump(p, 1);
-      else if (p.jumps < 2) jump(p, c.doubleJump);   // 공중에서 한 번 더
+      else if (p.jumps < maxJumps()) jump(p, c.doubleJump);   // 공중에서 한 번 더 (3층 바람·여왕의 깃털이면 두 번 더)
     }
     // 점프 버튼을 일찍 떼면 낮게 뜀
     if (!p.jumpCutDone && !I.held.jump && p.vh > 0) {
@@ -308,13 +308,21 @@ G.Player = (function () {
     const c = C();
     p.vh = c.jumpVel * power;
     G.Sound.play('jump');
-    p.jumps = p.onGround || p.coyote > 0 ? 1 : 2;
-    p.jumpAnim = p.jumps === 2 ? 'jump2' : 'jump';
+    const air = !(p.onGround || p.coyote > 0);
+    p.jumps = air ? Math.max(2, p.jumps + 1) : 1;
+    p.jumpAnim = p.jumps >= 2 ? 'jump2' : 'jump';
+    // 3단 점프: 발밑에서 깃털이 흩날리며 바람이 받쳐 줌
+    if (p.jumps >= 3 && G.BFX) { G.BFX.feathers(p.x, p.z, p.h, 6, null, 0.8); G.BFX.dust(p.x, p.z, 3, 0.6, '220, 230, 245'); }
     p.onGround = false;
     p.coyote = 0; p.jumpBuf = 0;
     p.jumpCutDone = false;
     p.landTimer = 0;
-    if (p.jumps === 2) p.anim.play('jump2', true, 0.04);
+    if (p.jumps >= 2) p.anim.play('jump2', true, 0.04);
+  }
+  // 공중 점프 포함 최대 점프 횟수: 기본 2단. 3층(바람이 부는 층)이거나 여왕의 깃털을 차면 3단
+  function maxJumps() {
+    const F = G.Floor && G.Floor.state && G.Floor.state.def;
+    return (G.Game && G.Game.mode === 'play' && F && F.jumps) || (G.Equip.special('triple') ? 3 : 2);
   }
 
   // ---------- 공격 ----------
@@ -359,7 +367,7 @@ G.Player = (function () {
 
   function updateAttack(p, dt, ax, ay) {
     const c = C(), a = p.atk, d = a.def;
-    a.t += dt * G.Equip.atkSpeed();                 // 여왕의 깃털 검: 휘두르는 속도가 빨라짐
+    a.t += dt * G.Equip.atkSpeed();                 // 공격 속도 장비가 있으면 휘두르는 속도가 빨라짐
     const s = d.startup, e = s + d.active, end = e + d.recovery;
     a.phase = a.t < s ? 'startup' : a.t < e ? 'active' : 'recovery';
     if (a.kind === 'down' && a.t >= s && !p.onGround) a.phase = 'active'; // 땅에 닿을 때까지 판정 유지
@@ -388,7 +396,7 @@ G.Player = (function () {
       return;
     }
     // 휘두른 뒤 빈틈에는 점프로 끊을 수 있음
-    if (a.phase === 'recovery' && p.jumpBuf > 0 && (p.coyote > 0 || p.jumps < 2)) {
+    if (a.phase === 'recovery' && p.jumpBuf > 0 && (p.coyote > 0 || p.jumps < maxJumps())) {
       p.atk = null;
       jump(p, p.coyote > 0 ? 1 : C().doubleJump);
       return;

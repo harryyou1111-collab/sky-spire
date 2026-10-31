@@ -35,7 +35,7 @@ G.Floor = (function () {
     G.Stage.setLayout(P.end, P.pillars);
     GATE.x = P.gateX;
     Object.assign(st, { phase: 'path', zone: 0, locked: false, gateK: 0, fade: 0, t: 0, wall: 0, go: 0 });
-    st.banner = { text: `${st.n}F`, sub: '적을 쓰러뜨리며 앞으로 나아가라', t: 0, life: 2.0 };
+    st.banner = { text: `${st.n}F`, sub: st.def.hint || '적을 쓰러뜨리며 앞으로 나아가라', t: 0, life: st.def.hint ? 2.8 : 2.0 };
     G.Sound.bgm('path');
     if (player) { player.x = 120; player.z = 90; player.vx = player.vz = 0; }
     if (G.Boss.state.target) G.Boss.state.target.active = false;
