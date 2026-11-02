@@ -101,15 +101,15 @@ G.Floors = {
       bgHorizon: 0.73,
       gateX: 3080,
       pillars: [
-        { x: 160,  z: 70, rx: 46, rz: 20, prop: 'rock_flat' },
-        { x: 1180, z: 84, rx: 50, rz: 22, prop: 'rock_flat' },
-        { x: 2080, z: 40, rx: 46, rz: 20, prop: 'rock_flat' },
-        { x: 2900, z: 82, rx: 44, rz: 20, prop: 'rock_flat' },
+        { x: 160,  z: 70, rx: 40, rz: 16, prop: 'wall_chunk' },
+        { x: 1180, z: 84, rx: 44, rz: 18, prop: 'wall_chunk' },
+        { x: 2080, z: 40, rx: 40, rz: 16, prop: 'wall_chunk' },
+        { x: 2900, z: 82, rx: 40, rz: 16, prop: 'wall_chunk' },
       ],
     },
     bossPillars: [
-      { x: 260, z: 40, rx: 40, rz: 18, prop: 'rock_tall', breakable: true },
-      { x: 640, z: 92, rx: 40, rz: 18, prop: 'rock_tall', breakable: true },
+      { x: 260, z: 40, rx: 58, rz: 18, prop: 'wall_chunk', breakable: true },
+      { x: 640, z: 92, rx: 58, rz: 18, prop: 'wall_chunk', breakable: true },
     ],
   },
 

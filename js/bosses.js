@@ -344,6 +344,7 @@ G.BossDefs = {
     name: '미노타우로스',
     title: '미궁의 도끼',
     reward: { equip: 'mino_axe' },   // 처음 쓰러뜨리면 무기 '미노타우로스의 도끼' (items.js)
+    // 대화 장면 (talk.js). 미노타우로스 목소리는 돌벽 메아리 + 낮게 깔리는 겹소리를 섞음
     talk: {
       bg: 'assets/bosses/minotaur/bg.jpg',
       cast: {
@@ -351,9 +352,9 @@ G.BossDefs = {
         hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
-        { who: 'minotaur', face: 'base', text: '…또 길 잃은 제물이 왔군.' },
-        { who: 'hero', face: 'serious', text: '길을 잃은 게 아니야. 너를 찾아온 거지.' },
-        { who: 'minotaur', face: 'base', text: '미궁은 아무도 내보내지 않는다!', sfx: 'roar', shake: true },
+        { who: 'minotaur', face: 'base', text: '…또 길 잃은 제물이 왔군.', voice: 'assets/story/voice/mino_01.mp3' },
+        { who: 'hero', face: 'serious', text: '길을 잃은 게 아니야. 너를 찾아온 거지.', voice: 'assets/story/voice/hero_m1.mp3' },
+        { who: 'minotaur', face: 'base', text: '미궁은 아무도 내보내지 않는다!', voice: 'assets/story/voice/mino_02.mp3', voiceDelay: 1.4, sfx: 'roar', shake: true },
       ],
     },
     talkWin: {
@@ -363,9 +364,9 @@ G.BossDefs = {
         hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
-        { who: 'minotaur', face: 'base', text: '드디어… 이 미궁에서… 나가는구나…' },
-        { who: 'hero', face: 'tired', text: '…편히 쉬어.' },
-        { who: 'hero', face: 'base', text: '도끼는 내가 가져가지.', flash: true },
+        { who: 'minotaur', face: 'base', text: '드디어… 이 미궁에서… 나가는구나…', voice: 'assets/story/voice/mino_w1.mp3' },
+        { who: 'hero', face: 'tired', text: '…편히 쉬어.', voice: 'assets/story/voice/hero_m2.mp3' },
+        { who: 'hero', face: 'base', text: '도끼는 내가 가져가지.', voice: 'assets/story/voice/hero_m3.mp3', flash: true },
       ],
     },
     lines: {
