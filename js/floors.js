@@ -83,6 +83,36 @@ G.Floors = {
     ],
   },
 
+  // 4층: 미노타우로스. 몹 구간(미궁 복도) → 보스전 (걸어 다니며 도끼를 휘두르는 보스)
+  //   보스방 돌벽 조각(breakable): 휩쓸기·충격파를 막아 주는 엄폐물. 도끼에 맞으면 부서짐
+  //   (돌벽 조각 그림이 오기 전까지는 2층 바위 그림을 임시로 씀)
+  4: {
+    boss: 'minotaur',
+    power: 1.3,
+    path: {
+      zones: [
+        { x0: 0,    x1: 900,  mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'satyr_archer', n: 1 }] },
+        { x0: 900,  x1: 1800, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'satyr_brute', n: 1 }] },
+        { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 },
+                                     { type: 'satyr_brute', n: 2 }] },
+      ],
+      end: 3300,
+      bg: 'assets/bosses/minotaur/path_bg.jpg',   // 미궁 복도 벽(좌우 반전 + 원본) + 보스방 배경을 이어 붙인 긴 그림
+      bgHorizon: 0.73,
+      gateX: 3080,
+      pillars: [
+        { x: 160,  z: 70, rx: 46, rz: 20, prop: 'rock_flat' },
+        { x: 1180, z: 84, rx: 50, rz: 22, prop: 'rock_flat' },
+        { x: 2080, z: 40, rx: 46, rz: 20, prop: 'rock_flat' },
+        { x: 2900, z: 82, rx: 44, rz: 20, prop: 'rock_flat' },
+      ],
+    },
+    bossPillars: [
+      { x: 260, z: 40, rx: 40, rz: 18, prop: 'rock_tall', breakable: true },
+      { x: 640, z: 92, rx: 40, rz: 18, prop: 'rock_tall', breakable: true },
+    ],
+  },
+
   // 8층: 판 (처음 만든 보스. 1층에서 옮겨 옴 — 길·몹 구성은 그대로)
   8: {
     boss: 'pan',

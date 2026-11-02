@@ -316,7 +316,7 @@ G.Beast = (function () {
 // ---------------------------------------------------------------------
 G.Boss = (function () {
   let E = G.BossFixed;
-  const ENGINES = { beast: () => G.Beast, flyer: () => G.Flyer };
+  const ENGINES = { beast: () => G.Beast, flyer: () => G.Flyer, brute: () => G.Brute };
   return {
     load(key) { const k = G.BossDefs[key].kind; E = ENGINES[k] ? ENGINES[k]() : G.BossFixed; E.load(key); },
     reset() { E.reset(); },

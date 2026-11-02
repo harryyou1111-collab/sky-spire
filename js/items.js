@@ -26,6 +26,15 @@ G.Items = {
     desc: '사냥꾼들을 삼킨 짐승의 부러진 엄니. 궁지에 몰릴수록 피가 끓어오른다.',
     special: { kind: 'frenzy', below: 0.3, mul: 1.5, text: '체력 30% 이하일 때 공격력 50% 증가' },
   },
+  // 미노타우로스의 도끼 (무기): 공격력이 크게 오르지만 휘두르는 속도가 15% 느려짐
+  //   도끼 그림(sword)이 아직 없어서 손에 든 무기는 기본 검 모양. 그림이 오면 sword·fx를 채움
+  mino_axe: {
+    name: '미노타우로스의 도끼', slot: 'weapon', from: '4F 미노타우로스',
+    icon: 'assets/items/mino_axe_icon.webp',
+    desc: '미궁의 괴물이 평생 휘두른 양날 도끼. 무겁지만, 한 번 맞으면 끝이다.',
+    atk: 5,
+    special: { kind: 'swift', mul: 0.85, text: '공격력 +5, 대신 공격 속도 15% 느림' },
+  },
   // 여왕의 깃털 (장신구): 3단 점프 — 어느 층에서든 공중에서 두 번 더 뛰어오름
   //   (공격 속도 효과 swift는 나중 장비에 쓸 수 있게 G.Equip.atkSpeed로 남겨 둠)
   harpy_feather: {
@@ -68,7 +77,7 @@ G.Equip = (function () {
     O.push(id); G.Save.save();
     return G.Items[id];
   }
-  // 공격 속도 배율 (special kind 'swift'의 mul). 공격 시간과 동작을 이만큼 빠르게 (지금은 쓰는 장비 없음)
+  // 공격 속도 배율 (special kind 'swift'의 mul. 1보다 작으면 느려짐 — 미노타우로스의 도끼 0.85)
   function atkSpeed() { const f = special('swift'); return f ? f.mul : 1; }
   // 지금 든 무기의 이펙트 색 (없으면 null = 기본 색)
   function fx() { const w = item('weapon'); return (w && w.fx) || null; }

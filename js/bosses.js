@@ -335,6 +335,100 @@ G.BossDefs = {
   },
 
   // ------------------------------------------------------------------
+  // 4층 — 미노타우로스: 미궁 한가운데의 도끼 든 괴물. 걸어 다니며 도끼를 휘두르는 결투형 보스 (brute.js)
+  //   휩쓸기는 점프로 넘고, 내려찍기는 피한 뒤 도끼가 박혀 있을 때 때리기. 돌벽 조각 뒤에 숨으면 휩쓸기·충격파를 막아 줌
+  // ------------------------------------------------------------------
+  minotaur: {
+    kind: 'brute',
+    floor: 4,
+    name: '미노타우로스',
+    title: '미궁의 도끼',
+    reward: { equip: 'mino_axe' },   // 처음 쓰러뜨리면 무기 '미노타우로스의 도끼' (items.js)
+    talk: {
+      bg: 'assets/bosses/minotaur/bg.jpg',
+      cast: {
+        minotaur: { name: '미노타우로스', side: 'back', flip: true, faces: { base: 'assets/story/minotaur.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'minotaur', face: 'base', text: '…또 길 잃은 제물이 왔군.' },
+        { who: 'hero', face: 'serious', text: '길을 잃은 게 아니야. 너를 찾아온 거지.' },
+        { who: 'minotaur', face: 'base', text: '미궁은 아무도 내보내지 않는다!', sfx: 'roar', shake: true },
+      ],
+    },
+    talkWin: {
+      bg: 'assets/bosses/minotaur/bg.jpg',
+      cast: {
+        minotaur: { name: '미노타우로스', side: 'back', flip: true, faces: { base: 'assets/story/minotaur.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'minotaur', face: 'base', text: '드디어… 이 미궁에서… 나가는구나…' },
+        { who: 'hero', face: 'tired', text: '…편히 쉬어.' },
+        { who: 'hero', face: 'base', text: '도끼는 내가 가져가지.', flash: true },
+      ],
+    },
+    lines: {
+      lose: { 1: '미궁의 벽이 하나 더 늘었군.', 3: '몇 번을 와도, 나가는 길은 없다.' },
+      win: '…자유로군.',
+    },
+    hp: 600,
+    start: { x: 700, z: 70, face: -1 },
+    baseX: 700, baseZ: 70,          // 등장 연출 카메라가 볼 곳
+    poses: {},
+    scale: 1.15,                    // 시트 1픽셀 = 게임 몇 단위 (키 ≈ 210)
+    hit: { w: 120, h: 200 },
+    roar: 'roar',
+    walkSpeed: 80,                  // 걷는 속도
+    reach: 190,                     // 이 거리 안에 들면 공격
+    chase: 2.5,                     // 이 시간 넘게 못 따라잡으면 멀리서라도 내려찍기
+    counterHits: 4,                 // 걷거나 서 있을 때 이만큼 맞으면 곧바로 휩쓸기로 반격
+    // 영상 시트 (Dreamina). clip마다 한 장면 크기(fw·fh)와 발굽 가운데(cx·bottom)가 다름
+    clips: {
+      walk:  { sheets: [0, 1].map(i => `assets/bosses/minotaur/walk_${i}.webp`), count: 25, fps: 12, fw: 254, fh: 195, cx: 75.9, bottom: 182,
+               seg: { loop: [0, 24] } },
+      sweep: { sheets: [0, 1, 2].map(i => `assets/bosses/minotaur/sweep_${i}.webp`), count: 48, fw: 501, fh: 316, cx: 216.7, bottom: 295.4,
+               seg: { raise: [0, 12], hold: [13, 19], swing: [20, 34], recover: [35, 47] } },
+      smash: { sheets: [0, 1, 2, 3].map(i => `assets/bosses/minotaur/smash_${i}.webp`), count: 50, fw: 427, fh: 363, cx: 121, bottom: 336,
+               seg: { raise: [0, 11], hold: [12, 16], strike: [17, 23], stuck: [24, 39], pull: [40, 49] } },
+      roar:  { sheets: [0, 1, 2].map(i => `assets/bosses/minotaur/roar_${i}.webp`), count: 39, fw: 254, fh: 224, cx: 74.8, bottom: 220.6,
+               seg: { lower: [0, 10], roar: [11, 25], back: [26, 38], idle: [33, 38] } },
+    },
+    theme: {
+      bg: 'assets/bosses/minotaur/bg.jpg',      // 미궁 한가운데 원형 방
+      horizon: 0.70,
+      sky: ['#1a0c08', '#5a2014', '#140a06'],
+      moon: '255, 150, 90',
+      leaves: false,
+      dust: '120, 92, 72',
+      silhouette: 'none',
+      ground: { far: '#3a2a22', near: '#5a4232', line: '#6e5038', front: '#1e1410', wall: '#120c08',
+                side: ['#33241b', '#4e3a2a', '#2c2018'], top: '#6a4e38', rim: '#8c6a4a' },
+    },
+    patterns: {
+      // 휩쓸기: 몸 둘레 붉은 고리가 예고 → 도끼가 바닥을 쓸고 지나갈 때(hitAt) 바닥에 있으면 맞음 (jumpOver 높이 이상 뜨면 넘김)
+      //   range: 앞쪽, back: 뒤쪽, depth: 깊이 범위. 돌벽 조각 뒤에 있으면 막아 줌
+      sweep: { raise: 0.5, hold: 0.9, holdQuick: 0.35, swing: 0.45, hitAt: 0.45, recover: 0.7,
+               range: 300, back: 230, depth: 55, jumpOver: 40, dmg: 26, rest: 0.6 },
+      // 내려찍기: 앞쪽 붉은 원(예고 동안 플레이어를 조금 따라감) → 내리찍음 → 박힌 도끼를 빼는 동안(stuck) 공격 기회
+      smash: { raise: 0.5, hold: 0.8, holdQuick: 0.35, strike: 0.18, stuck: 1.8, pull: 0.6,
+               reach: 195, radius: 75, dmg: 34, stunPlayer: 0, rest: 0.5, wave: false, waveSpeed: 520, waveDmg: 18 },
+    },
+    // 체력 50% 이하: 내려찍으면 충격파가 바닥을 타고 양옆으로 퍼짐 (점프로 넘기, 돌벽 조각이 막아 줌)
+    phase2: {
+      at: 0.5,
+      sweep: { hold: 0.7 },
+      smash: { hold: 0.65, stuck: 1.4, wave: true },
+    },
+    // 광폭화 (체력 25% 이하): 포효 후 휩쓸기 → 휩쓸기 → 내려찍기 연속, 걸음도 빨라짐
+    rage: {
+      at: 0.25,
+      sweep: { hold: 0.5, holdQuick: 0.3, rest: 0.3 },
+      smash: { hold: 0.5, stuck: 1.0, waveSpeed: 620, rest: 0.3 },
+    },
+  },
+
+  // ------------------------------------------------------------------
   // 8층 — 판: 숲과 야생, 공포(panic)의 신. 염소 뿔과 귀, 수염 (처음엔 1층 보스였음)
   // ------------------------------------------------------------------
   pan: {
