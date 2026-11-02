@@ -26,14 +26,17 @@ G.Items = {
     desc: '사냥꾼들을 삼킨 짐승의 부러진 엄니. 궁지에 몰릴수록 피가 끓어오른다.',
     special: { kind: 'frenzy', below: 0.3, mul: 1.5, text: '체력 30% 이하일 때 공격력 50% 증가' },
   },
-  // 미노타우로스의 도끼 (무기): 공격력이 크게 오르지만 휘두르는 속도가 15% 느려짐
-  //   도끼 그림(sword)이 아직 없어서 손에 든 무기는 기본 검 모양. 그림이 오면 sword·fx를 채움
+  // 미노타우로스의 도끼 (무기): 공격력 +3, 3타가 땅을 찍으면 앞으로 충격파. 대신 휘두르는 속도가 15% 느려짐
   mino_axe: {
     name: '미노타우로스의 도끼', slot: 'weapon', from: '4F 미노타우로스',
     icon: 'assets/items/mino_axe_icon.webp',
     desc: '미궁의 괴물이 평생 휘두른 양날 도끼. 무겁지만, 한 번 맞으면 끝이다.',
-    atk: 5,
-    special: { kind: 'swift', mul: 0.85, text: '공격력 +5, 대신 공격 속도 15% 느림' },
+    atk: 3,
+    speed: 0.85,                                        // 공격 속도 배율 (15% 느림)
+    special: { kind: 'quake', dmg: 9, range: 320, speed: 650, text: '3타가 땅을 찍어 앞으로 충격파 — 줄에 선 적 모두에게 9 추가 피해 (공격 속도 15% 느림)' },
+    // 그림: 도끼날이 왼쪽, 손잡이가 오른쪽 (받은 그림을 좌우 반전). grip은 원본 크기(1760×769) 기준 손잡이 끝 쪽
+    sword: { img: 'assets/items/mino_axe.webp', shape: 'assets/items/mino_axe.json', len: 1.3, grip: [1500, 367] },
+    fx: { slash: '255, 170, 90', heavy: '255, 120, 60', edge: '255, 230, 200', trail: '255, 150, 80', spark: '255, 180, 100' },
   },
   // 여왕의 깃털 (장신구): 3단 점프 — 어느 층에서든 공중에서 두 번 더 뛰어오름
   //   (공격 속도 효과 swift는 나중 장비에 쓸 수 있게 G.Equip.atkSpeed로 남겨 둠)
@@ -77,8 +80,8 @@ G.Equip = (function () {
     O.push(id); G.Save.save();
     return G.Items[id];
   }
-  // 공격 속도 배율 (special kind 'swift'의 mul. 1보다 작으면 느려짐 — 미노타우로스의 도끼 0.85)
-  function atkSpeed() { const f = special('swift'); return f ? f.mul : 1; }
+  // 공격 속도 배율: 장비의 speed(또는 special 'swift'의 mul)를 곱함. 1보다 작으면 느려짐 — 미노타우로스의 도끼 0.85
+  function atkSpeed() { return list().reduce((m, it) => m * (it.speed || (it.special && it.special.kind === 'swift' ? it.special.mul : 1)), 1); }
   // 지금 든 무기의 이펙트 색 (없으면 null = 기본 색)
   function fx() { const w = item('weapon'); return (w && w.fx) || null; }
   // 칼리돈의 엄니: 지금 효과가 켜져 있는가 (체력이 기준 이하)

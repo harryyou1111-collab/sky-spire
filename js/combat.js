@@ -127,10 +127,37 @@ G.Combat = (function () {
         G.FX.text(t.x + 10, S().screenY(t.z, t.h + t.height) - 20, String(th.dmg), '#9df07a');
       }
     }
+    // 미노타우로스의 도끼: 3타가 땅을 찍으면 앞으로 충격파가 달려가 줄에 선 적 모두에게 추가 피해 (맞든 안 맞든, 땅에서만)
+    const qk = a.kind === 'side3' && !a.quaked && p.onGround && G.Equip.special('quake');
+    if (qk) {
+      a.quaked = true;
+      const dir = Math.sign(a.dir.x) || p.facing || 1;
+      quakes.push({ x: p.x + dir * 50, z: p.z, dir, left: qk.range, sp: qk.speed, dmg: qk.dmg, hit: new Set() });
+      G.Sound.play('smash', { rate: 1.3, vol: 0.6 }); G.FX.shake(5, 0.15);
+      G.BFX.debris(p.x + dir * 50, p.z, 8, 0.7);
+    }
     return hitAny;
+  }
+  // 충격파 (도끼 3타): 바닥을 타고 앞으로 달려감. 지나가는 자리마다 먼지·파편
+  const quakes = [];
+  function updateQuakes(dt) {
+    for (const q of quakes) {
+      const step = q.sp * dt;
+      q.x += q.dir * step; q.left -= step;
+      if (Math.random() < dt * 40) G.BFX.dust(q.x, q.z + (Math.random() - 0.5) * 20, 1, 0.7, '150, 120, 90');
+      if (Math.random() < dt * 14) G.BFX.debris(q.x, q.z, 2, 0.5);
+      for (const t of targets) {
+        if (t.active === false || t.dummy || !t.onHit || q.hit.has(t)) continue;
+        if (Math.abs(t.x - q.x) > t.w / 2 + 14 || Math.abs(t.z - q.z) > 40 || t.h > 60) continue;
+        q.hit.add(t);
+        if (t.onHit(q.dmg, q.dir, null) !== false) G.FX.text(t.x + 10, S().screenY(t.z, t.h + t.height) - 20, String(q.dmg), '#ffb070');
+      }
+    }
+    for (let i = quakes.length - 1; i >= 0; i--) if (quakes[i].left <= 0) quakes.splice(i, 1);
   }
 
   function update(dt) {
+    updateQuakes(dt);
     for (const t of targets) {
       if (!t.dummy) continue;
       t.flash = Math.max(0, t.flash - dt);
