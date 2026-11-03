@@ -16,7 +16,7 @@ G.Sound = (function () {
   const vol = () => (G.Save.data.settings || (G.Save.data.settings = { sfx: 0.8, bgm: 0.7 }));
 
   // 있는 효과음 파일 (이름: 기본 크기)
-  const SFX = { swing: 0.8, swing3: 0.9, hit: 0.9, smash: 1, roar: 1, boar_roar: 1, harpy_cry: 0.9 };   // boar_roar: 멧돼지 울음, harpy_cry: 하피 여왕 울음
+  const SFX = { swing: 0.8, swing3: 0.9, hit: 0.9, smash: 1, roar: 1, boar_roar: 1, harpy_cry: 0.9, griffin_cry: 1 };   // boar_roar: 멧돼지, harpy_cry: 하피 여왕, griffin_cry: 그리폰 울음
   // 다른 파일을 빌려 쓰는 소리: 이름 → [파일 이름, { rate: 높이(1 = 그대로), vol: 크기 }]
   const ALIAS = {
     swing2: ['swing', { rate: 1.08 }],

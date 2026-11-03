@@ -439,7 +439,7 @@ G.BossDefs = {
     floor: 5,
     name: '그리폰',
     title: '황금을 지키는 짐승',
-    // 보상은 아직 정하지 않음 (스킬 예정)
+    reward: { skill: 'gale' },   // 처음 쓰러뜨리면 스킬 '돌풍' (skills.js)
     talk: {
       bg: 'assets/bosses/griffin/bg.jpg',
       cast: {
@@ -447,9 +447,9 @@ G.BossDefs = {
         hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
-        { who: 'hero', face: 'serious', text: '황금을 지키는 짐승… 소문대로군.' },
-        { who: 'griffin', face: 'base', text: '끼아아아악…!', sfx: 'roar', shake: true },
-        { who: 'hero', face: 'base', text: '보물엔 관심 없어. 지나가게만 해 줘.' },
+        { who: 'hero', face: 'serious', text: '황금을 지키는 짐승… 소문대로군.', voice: 'assets/story/voice/hero_g1.mp3' },
+        { who: 'griffin', face: 'base', text: '끼아아아악…!', sfx: 'griffin_cry', shake: true },
+        { who: 'hero', face: 'base', text: '보물엔 관심 없어. 지나가게만 해 줘.', voice: 'assets/story/voice/hero_g2.mp3' },
       ],
     },
     talkWin: {
@@ -459,8 +459,8 @@ G.BossDefs = {
         hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
       },
       lines: [
-        { who: 'hero', face: 'tired', text: '…끝까지 보물을 지켰구나.' },
-        { who: 'hero', face: 'base', text: '황금은 그대로 둘게. 나는 위로 간다.', flash: true },
+        { who: 'hero', face: 'tired', text: '…끝까지 보물을 지켰구나.', voice: 'assets/story/voice/hero_g3.mp3' },
+        { who: 'hero', face: 'base', text: '황금은 그대로 둘게. 나는 위로 간다.', voice: 'assets/story/voice/hero_g4.mp3', flash: true },
       ],
     },
     hp: 640,
@@ -469,7 +469,7 @@ G.BossDefs = {
     poses: {},
     scale: 1.1,                     // 시트 1픽셀 = 게임 몇 단위 (몸길이 ≈ 300)
     hit: { w: 150, h: 140 },
-    roar: 'roar',
+    roar: 'griffin_cry',            // 울음 (sound.js): 독수리 울음에 낮은 울림을 겹쳐 묵직하게
     walkSpeed: 90,                  // 걷는 속도 (다리 움직임은 걸은 거리에 맞춰짐)
     reach: 230,                     // 이 거리 안에 들면 공격
     counterHits: 4,                 // 걷거나 서 있을 때 이만큼 맞으면 곧바로 덮치기로 반격

@@ -27,7 +27,7 @@ G.Mobs = (function () {
       halfWidth: d.w / 2, halfDepth: 6, onGround: true,
     };
     m.target = G.Combat.addTarget({ x, z, h: m.h, w: d.w, height: d.height, active: true, mob: m,
-                                    onHit: (dmg, push) => hurt(m, dmg, push) });
+                                    onHit: (dmg, push, o) => hurt(m, dmg, push, o) });
     list.push(m);
     G.BFX.dust(x, z, 5, 0.8, '90, 80, 60');
     if (d.kind !== 'bomber') G.BFX.leaves(x, z, 20, 5);
@@ -42,13 +42,14 @@ G.Mobs = (function () {
   const alive = () => list.filter(m => m.state !== 'dead').length;
 
   // ---------- 맞음 ----------
-  function hurt(m, dmg, push) {
+  // o.kb: 밀려나는 힘을 따로 정할 때 (돌풍 스킬처럼 멀리 날려 보냄)
+  function hurt(m, dmg, push, o) {
     if (m.state === 'dead') return;
     m.hp -= dmg;
     m.flash = 0.12;
     const px = G.player ? G.player.x : m.x, pz = G.player ? G.player.z : m.z;
     let dx = m.x - px, dz = m.z - pz; const l = Math.hypot(dx, dz) || 1;
-    m.kbx = dx / l; m.kbz = dz / l * 0.6; m.kb = (dmg >= 15 ? 300 : 200) * (m.d.kbMul ?? 1);
+    m.kbx = dx / l; m.kbz = dz / l * 0.6; m.kb = ((o && o.kb) || (dmg >= 15 ? 300 : 200)) * (m.d.kbMul ?? 1);
     if (m.hp <= 0) {
       m.state = 'dead'; m.t = 0; m.target.active = false;
       G.Sound.play('mob_die', { vol: 0.8 });

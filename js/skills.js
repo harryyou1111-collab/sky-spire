@@ -15,6 +15,14 @@ G.Skills = {
     desc: '2초 동안 몸이 돌로 변해 어떤 공격도 받지 않는다. 그동안은 움직일 수 없다.',
     cooldown: 14, duration: 2,
   },
+  // 돌풍: 날개를 치듯 앞으로 거센 바람을 일으켜 앞쪽 적을 멀리 밀어내고 피해 (몹에게 둘러싸였을 때 빠져나오기)
+  //   보스는 밀리지 않고 피해만 (기술 중이면 막힘)
+  gale: {
+    name: '돌풍', from: '5F 그리폰',
+    icon: 'assets/skills/gale.webp',
+    desc: '앞으로 거센 바람을 일으켜 앞쪽의 적을 멀리 밀어내고 피해를 준다.',
+    cooldown: 10, dmg: 12, range: 300, depth: 70, kb: 760,
+  },
 };
 
 G.Skill = (function () {
@@ -51,8 +59,23 @@ G.Skill = (function () {
       G.Sound.play('smash', { rate: 1.6, vol: 0.6 });
       G.FX.shake(3, 0.15);
       G.FX.text(p.x, G.Stage.screenY(p.z, p.h + 150), '석화', '#bfe3ff');
-    }
+    } else if (id === 'gale') gale(p, K);
     return true;
+  }
+  // 돌풍: 바라보는 쪽으로 바람 (모래 먼지·깃털이 앞으로 쓸려 감) → 범위 안의 적을 밀어내고 피해
+  function gale(p, K) {
+    const dir = p.facing || 1;
+    p.atk = null;
+    G.Sound.play('swing3', { rate: 0.5, vol: 1 }); G.FX.shake(5, 0.2);
+    for (let i = 0; i < 14; i++) G.BFX.dust(p.x + dir * (20 + i * K.range / 14), p.z + (Math.random() - 0.5) * K.depth, 1, 1.4, '235, 225, 200', i * 0.012);
+    G.BFX.feathers(p.x + dir * 30, p.z, p.h + 60, 8, dir, 2.2);
+    G.FX.text(p.x, G.Stage.screenY(p.z, p.h + 150), '돌풍', '#e8f4ff');
+    for (const t of G.Combat.targets.slice()) {
+      if (t.active === false || t.dummy || !t.onHit) continue;
+      const dx = (t.x - p.x) * dir;
+      if (dx < -20 || dx > K.range || Math.abs(t.z - p.z) > K.depth || t.h > p.h + 160) continue;
+      if (t.onHit(K.dmg, dir, { kb: K.kb }) !== false) G.FX.text(t.x, G.Stage.screenY(t.z, t.h + t.height) - 6, String(K.dmg), '#e8f4ff');
+    }
   }
   function update(dt) {
     for (let i = 0; i < 2; i++) cd[i] = Math.max(0, cd[i] - dt);
