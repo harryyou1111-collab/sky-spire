@@ -355,7 +355,7 @@ G.Pouncer = (function () {
     const C = def.clips[st.clip], f = Math.max(0, Math.min(C.count - 1, st.frame));
     const im = G.Render.getImg(C.sheets[Math.floor(f / 16)]);
     if (!im) return;
-    const k = f % 16, sx = (k % 4) * C.fw, sy = Math.floor(k / 4) * C.fh, s = def.scale;
+    const k = f % 16, sx = (k % 4) * C.fw, sy = Math.floor(k / 4) * C.fh, s = def.scale * sizeAt(C, f);
     const y = S().floorY(st.z) + 2;
     ctx.save();
     ctx.globalAlpha = st.fade;
@@ -370,6 +370,14 @@ G.Pouncer = (function () {
     }
     if (st.flash > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35; draw(); }
     ctx.restore();
+  }
+  // AI 영상이 일어서거나 울부짖는 동안 몸을 크게 부풀려 놓은 구간을 줄여서 그림 (발 기준으로 줄임)
+  //   shrink: [줄이기 시작, 다 줄어든 곳, 다시 커지기 시작, 원래대로, 배율] (장면 번호)
+  function sizeAt(C, f) {
+    const q = C.shrink; if (!q) return 1;
+    const [a, b, c, d, m] = q;
+    const w = f <= a || f >= d ? 0 : f < b ? (f - a) / (b - a) : f <= c ? 1 : (d - f) / (d - c);
+    return 1 - (1 - m) * w;
   }
   function drawables() { return def ? [{ key: st.z, draw: drawBody }] : []; }
   function drawTop(ctx) {
