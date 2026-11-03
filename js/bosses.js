@@ -477,11 +477,11 @@ G.BossDefs = {
       walk:   { sheets: [0, 1].map(i => `assets/bosses/griffin/walk_${i}.webp`), count: 23, stride: 5.5, fw: 258, fh: 139, cx: 174.7, bottom: 134.5,
                 seg: { loop: [0, 22] } },
       pounce: { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/pounce_${i}.webp`), count: 59, fw: 386, fh: 313, cx: 180.4, bottom: 304.5,
-                seg: { crouch: [0, 12], leap: [13, 29], air: [30, 42], land: [43, 50], recover: [51, 58] } },
+                seg: { idle: [0, 3], crouch: [0, 12], leap: [13, 29], air: [30, 42], land: [43, 50], recover: [51, 58] } },
       gust:   { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/gust_${i}.webp`), count: 53, fw: 528, fh: 427, cx: 241, bottom: 421,
                 seg: { rise: [0, 8], beat: [9, 42], settle: [43, 52] } },
       roar:   { sheets: [0, 1, 2].map(i => `assets/bosses/griffin/roar_${i}.webp`), count: 38, fw: 473, fh: 407, cx: 315.2, bottom: 401.4,
-                seg: { lower: [0, 7], roar: [8, 26], back: [27, 37], idle: [33, 37] } },
+                seg: { lower: [0, 7], roar: [8, 26], back: [27, 30] } },   // back은 날개를 접는 앞부분만 (뒤는 몸이 길게 늘어남)
     },
     theme: {
       bg: 'assets/bosses/griffin/bg.jpg',       // 사막 협곡의 황금 신전 폐허

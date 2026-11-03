@@ -69,7 +69,9 @@ G.Pouncer = (function () {
     st.clip = 'walk'; st.frame = k % C.count;
     if (Math.floor(k / 6) !== Math.floor(before / 6)) G.BFX.dust(st.x, st.z, 1, 0.4, def.theme.dust);
   }
-  const idle = () => pingpong('roar', 'idle', st.time, 5);
+  // 서 있기: 덮치기 영상 맨 앞(웅크리기 직전)의 평범한 자세를 천천히 왕복
+  //   (울부짖기·돌풍 영상 끝부분은 AI가 몸을 길게 늘여 놓아서 쓰지 않음)
+  const idle = () => pingpong('pounce', 'idle', st.time, 4);
   const ease = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
   const lerp = (a, b, u) => a + (b - a) * u;
 
@@ -238,7 +240,7 @@ G.Pouncer = (function () {
         player.x = Math.max(S().data.minX + 10, Math.min(S().data.maxX - 10, player.x));
         if (Math.random() < dt * 20) G.BFX.dust(player.x - st.face * 10, player.z, 1, 0.5, def.theme.dust);
       }
-    } else if (A.t < T3) seg('gust', 'settle', (A.t - T2) / p.settle);
+    } else if (A.t < T3) seg('gust', 'rise', 1 - (A.t - T2) / p.settle);   // 일어섰던 동작을 거꾸로 → 원래 자세 (영상 끝은 몸이 늘어나 있어서)
     else end(p.rest);
   }
   // 플레이어와 그리폰 사이에 사암 기둥이 있으면 바람·칼날을 막아 줌
