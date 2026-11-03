@@ -30,6 +30,7 @@ G.Stage = (function () {
     rock_flat: { src: 'assets/props/rock_flat.webp', w: 420, h: 203, top: 0.27, foot: 0.86, widthOf: 0.95 },
     rock_tall: { src: 'assets/props/rock_tall.webp', w: 420, h: 491, top: 0.12, foot: 0.93, widthOf: 0.95 },
     stump:     { src: 'assets/props/stump.webp',     w: 420, h: 350, top: 0.14, foot: 0.80, widthOf: 0.6 },
+    sand_column: { src: 'assets/props/sand_column.webp', w: 318, h: 702, top: 0.07, foot: 0.96, widthOf: 0.6 },   // 5층 부러진 사암 기둥
     wall_chunk: { src: 'assets/props/wall_chunk.webp', w: 534, h: 469, top: 0.25, foot: 0.96, widthOf: 0.85 },   // 4층 무너진 미궁 돌벽 조각
     rock_spire: { src: 'assets/props/rock_spire.webp', w: 280, h: 718, top: 0.05, foot: 0.97, widthOf: 0.75 },   // 3층 눈 덮인 바위 기둥 (높음)
   };

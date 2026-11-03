@@ -430,6 +430,94 @@ G.BossDefs = {
   },
 
   // ------------------------------------------------------------------
+  // 5층 — 그리폰: 사막 신전 폐허에서 황금을 지키는 짐승. 걸어 다니다 크게 덮치는 보스 (pouncer.js)
+  //   덮치기를 피한 뒤 일어나는 동안 때리기. 사암 기둥 위로 덮치게 만들면 기둥이 부서지며 오래 비틀거림
+  //   날개 돌풍은 기둥 뒤에 숨거나 모래 칼날을 점프로 넘기
+  // ------------------------------------------------------------------
+  griffin: {
+    kind: 'pouncer',
+    floor: 5,
+    name: '그리폰',
+    title: '황금을 지키는 짐승',
+    // 보상은 아직 정하지 않음 (스킬 예정)
+    talk: {
+      bg: 'assets/bosses/griffin/bg.jpg',
+      cast: {
+        griffin: { name: '그리폰', side: 'back', flip: true, faces: { base: 'assets/story/griffin.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'hero', face: 'serious', text: '황금을 지키는 짐승… 소문대로군.' },
+        { who: 'griffin', face: 'base', text: '끼아아아악…!', sfx: 'roar', shake: true },
+        { who: 'hero', face: 'base', text: '보물엔 관심 없어. 지나가게만 해 줘.' },
+      ],
+    },
+    talkWin: {
+      bg: 'assets/bosses/griffin/bg.jpg',
+      cast: {
+        griffin: { name: '그리폰', side: 'back', flip: true, faces: { base: 'assets/story/griffin.webp' } },
+        hero: { name: '홀로 오르는 자', side: 'left', flip: true, faces: { base: 'assets/story/hero_base.webp', serious: 'assets/story/hero_serious.webp', tired: 'assets/story/hero_tired.webp' } },
+      },
+      lines: [
+        { who: 'hero', face: 'tired', text: '…끝까지 보물을 지켰구나.' },
+        { who: 'hero', face: 'base', text: '황금은 그대로 둘게. 나는 위로 간다.', flash: true },
+      ],
+    },
+    hp: 640,
+    start: { x: 700, z: 70, face: -1 },
+    baseX: 700, baseZ: 70,
+    poses: {},
+    scale: 1.1,                     // 시트 1픽셀 = 게임 몇 단위 (몸길이 ≈ 300)
+    hit: { w: 150, h: 140 },
+    roar: 'roar',
+    walkSpeed: 90,                  // 걷는 속도 (다리 움직임은 걸은 거리에 맞춰짐)
+    reach: 230,                     // 이 거리 안에 들면 공격
+    counterHits: 4,                 // 걷거나 서 있을 때 이만큼 맞으면 곧바로 덮치기로 반격
+    clips: {
+      walk:   { sheets: [0, 1].map(i => `assets/bosses/griffin/walk_${i}.webp`), count: 23, stride: 5.5, fw: 258, fh: 139, cx: 174.7, bottom: 134.5,
+                seg: { loop: [0, 22] } },
+      pounce: { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/pounce_${i}.webp`), count: 59, fw: 386, fh: 313, cx: 180.4, bottom: 304.5,
+                seg: { crouch: [0, 12], leap: [13, 29], air: [30, 42], land: [43, 50], recover: [51, 58] } },
+      gust:   { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/gust_${i}.webp`), count: 53, fw: 528, fh: 427, cx: 241, bottom: 421,
+                seg: { rise: [0, 8], beat: [9, 42], settle: [43, 52] } },
+      roar:   { sheets: [0, 1, 2].map(i => `assets/bosses/griffin/roar_${i}.webp`), count: 38, fw: 473, fh: 407, cx: 315.2, bottom: 401.4,
+                seg: { lower: [0, 7], roar: [8, 26], back: [27, 37], idle: [33, 37] } },
+    },
+    theme: {
+      bg: 'assets/bosses/griffin/bg.jpg',       // 사막 협곡의 황금 신전 폐허
+      horizon: 0.73,
+      sky: ['#3a6ab0', '#9ac0e8', '#d8b884'],
+      moon: '255, 230, 170',
+      leaves: false,
+      sand: true,                               // 바람에 모래가 날림
+      dust: '214, 186, 136',
+      silhouette: 'none',
+      ground: { far: '#b89a6a', near: '#d6b98a', line: '#c9a874', front: '#6e5638', wall: '#3a2c1c',
+                side: ['#9a7c52', '#b8966a', '#8a6c46'], top: '#e0c494', rim: '#f0d8a8' },
+    },
+    patterns: {
+      // 덮치기: 웅크린 동안(track 비율까지) 붉은 원이 플레이어를 따라옴 → 뛰어올라 원에 착지 → 일어나는 동안(recover) 맞음
+      pounce: { crouch: 0.85, crouchQuick: 0.45, track: 0.75, air: 0.7, radius: 85, dmg: 28, stunPlayer: 0,
+                recover: 1.0, stunRock: 2.4, rest: 0.6, minDist: 140, maxDist: 560, bounce: 0 },
+      // 날개 돌풍: beats(돌풍 구간 안 비율)마다 모래 칼날 → 점프로 넘기. 앞쪽 windRange 안이면 push 속도로 밀려남
+      gust: { rise: 0.5, riseQuick: 0.35, beatTime: 2.0, beats: [0.12, 0.44, 0.78], settle: 0.7,
+              bladeSpeed: 540, dmg: 16, push: 230, windRange: 600, rest: 0.6 },
+    },
+    // 체력 50% 이하: 덮치기가 두 번 이어짐 (기둥에 부딪히면 멈춤), 돌풍이 빨라짐
+    phase2: {
+      at: 0.5,
+      pounce: { crouch: 0.7, bounce: 1, recover: 0.8 },
+      gust: { beatTime: 1.7, bladeSpeed: 620 },
+    },
+    // 광폭화 (체력 25% 이하): 울부짖은 뒤 덮치기 → 덮치기 → 돌풍 연속
+    rage: {
+      at: 0.25,
+      pounce: { crouch: 0.55, crouchQuick: 0.35, bounce: 1, recover: 0.6, stunRock: 1.8, rest: 0.3 },
+      gust: { beatTime: 1.5, bladeSpeed: 700, push: 280, rest: 0.3 },
+    },
+  },
+
+  // ------------------------------------------------------------------
   // 8층 — 판: 숲과 야생, 공포(panic)의 신. 염소 뿔과 귀, 수염 (처음엔 1층 보스였음)
   // ------------------------------------------------------------------
   pan: {

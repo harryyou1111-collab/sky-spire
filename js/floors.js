@@ -113,6 +113,36 @@ G.Floors = {
     ],
   },
 
+  // 5층: 그리폰. 몹 구간(사막 신전 벽길) → 보스전 (걸어 다니다 크게 덮치는 보스)
+  //   보스방 사암 기둥(breakable): 그리폰이 위로 덮치면 부서지며 오래 비틀거림. 날개 돌풍(바람·모래 칼날)도 막아 줌
+  5: {
+    boss: 'griffin',
+    power: 1.4,
+    path: {
+      zones: [
+        { x0: 0,    x1: 900,  mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'satyr_archer', n: 2 }] },
+        { x0: 900,  x1: 1800, mobs: [{ type: 'satyr_spear', n: 2 }, { type: 'satyr_archer', n: 2 }, { type: 'satyr_brute', n: 1 }, { type: 'wisp', n: 1 }] },
+        { x0: 1800, x1: 2700, mobs: [{ type: 'satyr_spear', n: 3 }, { type: 'satyr_archer', n: 2 }, { type: 'wisp', n: 1 },
+                                     { type: 'satyr_brute', n: 2 }] },
+      ],
+      end: 3300,
+      bg: 'assets/bosses/griffin/path_bg.jpg',   // 그리폰 조각 벽(좌우 반전 + 원본) + 보스방 배경을 이어 붙인 긴 그림
+      bgHorizon: 0.73,
+      gateX: 3080,
+      pillars: [
+        { x: 180,  z: 70, rx: 18, rz: 12, prop: 'sand_column' },
+        { x: 1180, z: 84, rx: 20, rz: 13, prop: 'sand_column' },
+        { x: 2080, z: 40, rx: 18, rz: 12, prop: 'sand_column' },
+        { x: 2900, z: 82, rx: 18, rz: 12, prop: 'sand_column' },
+      ],
+    },
+    bossPillars: [
+      { x: 230, z: 40, rx: 24, rz: 14, prop: 'sand_column', breakable: true },
+      { x: 450, z: 96, rx: 24, rz: 14, prop: 'sand_column', breakable: true },
+      { x: 690, z: 34, rx: 24, rz: 14, prop: 'sand_column', breakable: true },
+    ],
+  },
+
   // 8층: 판 (처음 만든 보스. 1층에서 옮겨 옴 — 길·몹 구성은 그대로)
   8: {
     boss: 'pan',
