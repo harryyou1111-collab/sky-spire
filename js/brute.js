@@ -33,7 +33,7 @@ G.Brute = (function () {
     Object.assign(st, {
       hp: def.hp, maxHp: def.hp, mode: 'fight', timer: 1.2, time: 0, flash: 0, fade: 1,
       x: def.start.x, z: def.start.z, face: def.start.face || -1, act: null, clip: 'walk', frame: 0, at: 0,
-      marks: [], waves: [], last: null, stars: 0, hits: 0, combo: [], raged: false,
+      marks: [], waves: [], last: null, stars: 0, hits: 0, combo: [], raged: false, walk: 0,
     });
     if (G.BFX) G.BFX.clear();
     if (st.target) G.Combat.removeTarget(st.target);
@@ -61,9 +61,16 @@ G.Brute = (function () {
     const [a, b] = def.clips[clip].seg[name], n = b - a + 1, k = Math.floor(t * fps) % Math.max(1, n * 2 - 2);
     st.clip = clip; st.frame = a + (k < n ? k : 2 * n - 2 - k);
   }
-  function walkAnim(t) {
-    const C = def.clips.walk;
-    st.clip = 'walk'; st.frame = Math.floor(t * C.fps) % C.count;
+  // 걷기: 걸은 거리만큼 장면을 넘김 → 발굽이 바닥에 붙어 있음 (빨리 걸으면 다리도 빨리, 미끄러지지 않게)
+  //   stride: 시트 한 장면마다 몸이 나아가는 거리 (영상 속 디딘 발굽이 뒤로 밀리는 속도로 잼)
+  function walkAnim(moved) {
+    const C = def.clips.walk, before = Math.floor(st.walk / C.stride);
+    st.walk += moved;
+    const k = Math.floor(st.walk / C.stride);
+    st.clip = 'walk'; st.frame = k % C.count;
+    // 발을 디딜 때마다 쿵 (한 바퀴에 두 번)
+    const half = Math.round(C.count / 2);
+    if (Math.floor(k / half) !== Math.floor(before / half)) { G.FX.shake(2.5, 0.08); G.BFX.dust(st.x, st.z, 2, 0.5, def.theme.dust); }
   }
   const idle = () => pingpong('roar', 'idle', st.time, 5);
 
@@ -104,14 +111,11 @@ G.Brute = (function () {
     st.timer -= dt;
     const want = dist > def.reach || Math.abs(dz) > 26;
     if (want && !player.dead) {
-      const sp = def.walkSpeed * (raging() ? 1.35 : 1);
+      const sp = def.walkSpeed * (raging() ? 1.35 : 1), x0 = st.x, z0 = st.z;
       if (dist > def.reach) st.x += Math.sign(dx) * sp * dt;
       st.z += Math.max(-1, Math.min(1, dz / 20)) * sp * 0.6 * dt;
       st.x = Math.max(60, Math.min(G.CFG.ARENA_W - 60, st.x));
-      walkAnim(st.at);
-      if (Math.floor(st.at * def.clips.walk.fps / (def.clips.walk.count / 2)) !== Math.floor((st.at - dt) * def.clips.walk.fps / (def.clips.walk.count / 2))) {
-        G.FX.shake(2.5, 0.08); G.BFX.dust(st.x, st.z, 2, 0.5, def.theme.dust);   // 쿵쿵 걸음
-      }
+      walkAnim(Math.hypot(st.x - x0, (st.z - z0) * 1.5));
     } else idle();
     if (raging() && Math.random() < dt * 8) G.BFX.dust(st.x + R(-40, 40), st.z, 1, 0.4, '220, 70, 40');
     // 너무 오래 못 다가가면(멀리서 도망 다니면) 그 자리에서 내려찍기로 충격파를 보냄
@@ -184,13 +188,7 @@ G.Brute = (function () {
   function smashAct(dt, player, A, p) {
     const T1 = p.raise, T2 = T1 + (A.quick ? p.holdQuick : p.hold), T3 = T2 + p.strike, T4 = T3 + p.stuck, T5 = T4 + p.pull;
     if (A.t < T2) {
-      // 예고 중에는 플레이어 쪽으로 조금씩 다가가고 깊이를 맞춤 (도끼가 떨어질 자리 = 몸 앞 reach)
-      if (A.t < T1 + (T2 - T1) * 0.6 && !player.dead) {
-        const gap = (player.x - st.x) * st.face - p.reach;
-        if (gap > 0) st.x += st.face * Math.min(gap, def.walkSpeed * 0.8 * dt);
-        st.z += Math.max(-1, Math.min(1, (player.z - st.z) / 20)) * def.walkSpeed * 0.5 * dt;
-        st.x = Math.max(60, Math.min(G.CFG.ARENA_W - 60, st.x));
-      }
+      // 도끼가 떨어질 자리 = 몸 앞 reach (공격 중에는 제자리 — 걷는 동작 없이 움직이면 미끄러져 보여서)
       A.tx = st.x + st.face * p.reach; A.tz = st.z;
       if (A.t < T1) seg('smash', 'raise', A.t / T1);
       else pingpong('smash', 'hold', A.t - T1, 5);

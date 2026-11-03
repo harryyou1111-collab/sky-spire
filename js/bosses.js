@@ -380,13 +380,13 @@ G.BossDefs = {
     scale: 1.15,                    // 시트 1픽셀 = 게임 몇 단위 (키 ≈ 210)
     hit: { w: 120, h: 200 },
     roar: 'roar',
-    walkSpeed: 80,                  // 걷는 속도
+    walkSpeed: 95,                  // 걷는 속도 (다리 움직임은 걸은 거리에 맞춰 저절로 빨라짐)
     reach: 190,                     // 이 거리 안에 들면 공격
     chase: 2.5,                     // 이 시간 넘게 못 따라잡으면 멀리서라도 내려찍기
     counterHits: 4,                 // 걷거나 서 있을 때 이만큼 맞으면 곧바로 휩쓸기로 반격
     // 영상 시트 (Dreamina). clip마다 한 장면 크기(fw·fh)와 발굽 가운데(cx·bottom)가 다름
     clips: {
-      walk:  { sheets: [0, 1].map(i => `assets/bosses/minotaur/walk_${i}.webp`), count: 25, fps: 12, fw: 254, fh: 195, cx: 75.9, bottom: 182,
+      walk:  { sheets: [0, 1].map(i => `assets/bosses/minotaur/walk_${i}.webp`), count: 25, stride: 8.8, fw: 254, fh: 195, cx: 75.9, bottom: 182,
                seg: { loop: [0, 24] } },
       sweep: { sheets: [0, 1, 2].map(i => `assets/bosses/minotaur/sweep_${i}.webp`), count: 48, fw: 501, fh: 316, cx: 216.7, bottom: 295.4,
                seg: { raise: [0, 12], hold: [13, 19], swing: [20, 34], recover: [35, 47] } },
