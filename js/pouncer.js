@@ -10,7 +10,7 @@
 //   다가오기: 사자처럼 천천히 걸어옴. 걷는 중에는 맞지만, 여러 번 맞으면 곧바로 덮치기로 반격
 //   덮치기: 웅크림(예고: 바닥에 붉은 원이 플레이어를 따라옴) → 뛰어올라 원에 착지 → 일어나는 동안 공격 기회
 //           사암 기둥 위로 떨어지면 기둥이 부서지고 오래 비틀거림. 2단계: 한 번 더 이어서 덮침
-//   날개 돌풍: 뒷발로 서서 날개를 세 번 내리침 → 바람에 밀려나고, 내리칠 때마다 모래 칼날이 바닥을 타고 날아옴(점프로 넘기)
+//   날개 돌풍: 네 발로 선 채 날개를 세 번 내리침 → 바람에 밀려나고, 내리칠 때마다 모래 칼날이 바닥을 타고 날아옴(점프로 넘기)
 //              사암 기둥 뒤에 숨으면 바람과 칼날을 막아 줌
 //   광폭화: 울부짖은 뒤 덮치기 → 덮치기 → 돌풍 연속
 // =====================================================================
@@ -240,7 +240,7 @@ G.Pouncer = (function () {
         player.x = Math.max(S().data.minX + 10, Math.min(S().data.maxX - 10, player.x));
         if (Math.random() < dt * 20) G.BFX.dust(player.x - st.face * 10, player.z, 1, 0.5, def.theme.dust);
       }
-    } else if (A.t < T3) seg('gust', 'rise', 1 - (A.t - T2) / p.settle);   // 일어섰던 동작을 거꾸로 → 원래 자세 (영상 끝은 몸이 늘어나 있어서)
+    } else if (A.t < T3) seg('gust', 'settle', (A.t - T2) / p.settle);
     else end(p.rest);
   }
   // 플레이어와 그리폰 사이에 사암 기둥이 있으면 바람·칼날을 막아 줌
@@ -281,6 +281,7 @@ G.Pouncer = (function () {
         G.BFX.screenFlash('255, 90, 30', 0.35);
         G.FX.text(st.x, S().screenY(st.z, def.hit.h + 60), '광폭화!', '#ff5a3a');
         G.BFX.feathers(st.x, st.z, 80, 10, null, 1.2);
+        for (const dx of [-160, -80, 0, 80, 160]) G.BFX.dust(st.x + dx, st.z + R(-20, 20), 3, 1.4, def.theme.dust);   // 울부짖음에 모래가 일어남
       }
     } else if (A.t < 2.3) seg('roar', 'back', (A.t - 1.7) / 0.6);
     else { st.act = null; st.timer = 0.2; st.at = 0; }

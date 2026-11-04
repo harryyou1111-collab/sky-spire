@@ -478,10 +478,12 @@ G.BossDefs = {
                 seg: { loop: [0, 22] } },
       pounce: { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/pounce_${i}.webp`), count: 59, fw: 386, fh: 313, cx: 180.4, bottom: 304.5,
                 seg: { idle: [0, 3], crouch: [0, 12], leap: [13, 29], air: [30, 42], land: [43, 50], recover: [51, 58] } },
-      gust:   { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/gust_${i}.webp`), count: 53, fw: 528, fh: 427, cx: 241, bottom: 421,
-                seg: { rise: [0, 8], beat: [9, 42], settle: [43, 52] }, shrink: [2, 8, 52, 53, 0.66] },
-      roar:   { sheets: [0, 1, 2].map(i => `assets/bosses/griffin/roar_${i}.webp`), count: 38, fw: 473, fh: 407, cx: 315.2, bottom: 401.4,
-                seg: { lower: [0, 7], roar: [8, 26], back: [27, 30] }, shrink: [7, 12, 30, 31, 0.62] },   // back은 날개를 접는 앞부분만 (뒤는 몸이 길게 늘어남)
+      // 날개 돌풍 (네 발로 선 채 날개를 세 번 내리침. 시작 그림을 걷기·덮치기와 같은 크기로 다시 뽑음)
+      gust:   { sheets: [0, 1, 2, 3].map(i => `assets/bosses/griffin/gust_${i}.webp`), count: 59, fw: 473, fh: 309, cx: 193.7, bottom: 301.5,
+                seg: { rise: [0, 11], beat: [12, 51], settle: [52, 58] } },
+      // 울부짖기: 네 발로 선 채 고개만 들어 울부짖음 (몸 크기가 변하지 않게 다시 뽑음)
+      roar:   { sheets: [0, 1, 2].map(i => `assets/bosses/griffin/roar_${i}.webp`), count: 39, fw: 236, fh: 166, cx: 111.7, bottom: 162.5,
+                seg: { lower: [0, 10], roar: [11, 25], back: [26, 38] } },
     },
     theme: {
       bg: 'assets/bosses/griffin/bg.jpg',       // 사막 협곡의 황금 신전 폐허
@@ -500,7 +502,7 @@ G.BossDefs = {
       pounce: { crouch: 0.85, crouchQuick: 0.45, track: 0.75, air: 0.7, radius: 85, dmg: 28, stunPlayer: 0,
                 recover: 1.0, stunRock: 2.4, rest: 0.6, minDist: 140, maxDist: 560, bounce: 0 },
       // 날개 돌풍: beats(돌풍 구간 안 비율)마다 모래 칼날 → 점프로 넘기. 앞쪽 windRange 안이면 push 속도로 밀려남
-      gust: { rise: 0.5, riseQuick: 0.35, beatTime: 2.0, beats: [0.12, 0.44, 0.78], settle: 0.7,
+      gust: { rise: 0.6, riseQuick: 0.4, beatTime: 2.2, beats: [0.09, 0.49, 0.95], settle: 0.6,
               bladeSpeed: 540, dmg: 16, push: 230, windRange: 600, rest: 0.6 },
     },
     // 체력 50% 이하: 덮치기가 두 번 이어짐 (기둥에 부딪히면 멈춤), 돌풍이 빨라짐
